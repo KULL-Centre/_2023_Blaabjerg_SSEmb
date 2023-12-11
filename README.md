@@ -6,7 +6,7 @@ XXX
 
 ## Execution
 Execute the pipeline using `src/run_pipeline.py`.\
-This main script will call other scripts in the `src` directory necessary to train, validate and test the SSEmb model as described in the paper.
+This main script will call other scripts in the `src` directory to train, validate and test the SSEmb model as described in the paper.
 
 ## Citation
 Please cite:
