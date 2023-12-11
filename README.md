@@ -12,7 +12,7 @@ Please cite:
 XXX
 
 ## License
-Source code and model weights are licensed under the Apache Licence, Version 2.0.
+Source code and model weights are licensed under the MIT License.
 
 ## Acknowledgements
 Code for the MSA Transformer was developed by the ESM team at Meta Research:\
