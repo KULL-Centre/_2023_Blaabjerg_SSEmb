@@ -5,7 +5,8 @@ This repository contains scripts and data to repeat the analyses in Blaabjerg et
 XXX
 
 ## Execution
-Execute the pipeline using `src/run_pipeline.py`. This main script will call other necessary scripts to train, validate and test the SSEmb model as descriper in the paper.
+Execute the pipeline using `src/run_pipeline.py`.\
+This main script will call other scripts in the `src` directory necessary to train, validate and test the SSEmb model as described in the paper.
 
 ## Citation
 Please cite:
