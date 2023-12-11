@@ -4,13 +4,6 @@
 This repository contains scripts and data to repeat the analyses in Blaabjerg et al.:
 XXX
 
-## Code
-Overview of files:<br>
-XXX
-
-## Installation
-XXX
-
 ## Execution
 Execute the pipeline using `src/run_pipeline.py`.
 
