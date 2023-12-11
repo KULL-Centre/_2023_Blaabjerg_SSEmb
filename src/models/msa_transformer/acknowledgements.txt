@@ -1,0 +1,11 @@
+The code presented in this directory has been taken from:
+https://github.com/facebookresearch/esm/tree/main/esm
+
+@article{rao2021msa,
+  author = {Rao, Roshan and Liu, Jason and Verkuil, Robert and Meier, Joshua and Canny, John F. and Abbeel, Pieter and Sercu, Tom and Rives, Alexander},
+  title={MSA Transformer},
+  year={2021},
+  doi={10.1101/2021.02.12.430858},
+  url={https://www.biorxiv.org/content/10.1101/2021.02.12.430858v1},
+  journal={bioRxiv}
+}
