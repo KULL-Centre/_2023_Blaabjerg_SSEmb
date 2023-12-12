@@ -5,7 +5,7 @@ This repository contains scripts and data to repeat the analyses in Blaabjerg et
 XXX
 
 ## Downloads 
-Data related to the paper can be download here: [https://zenodo.org/records/10362251](https://zenodo.org/records/10362251).
+Data related to the paper can be download here: [https://zenodo.org/records/10362251](https://zenodo.org/records/10362251).\
 The directory contains the folding subdirectories:\
 * `train`
     * `model_weights`: Contains pretrained weights for the SSEmb-MSATransformer and SSEmb-GVPGNN modules.
