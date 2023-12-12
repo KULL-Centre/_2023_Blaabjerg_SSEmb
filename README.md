@@ -8,8 +8,8 @@ XXX
 Data related to the paper can be download here: [https://zenodo.org/records/10362251](https://zenodo.org/records/10362251).<br>
 The directory contains the folding subdirectories:<br>
 * `train`
-    * `model_weights`: Contains pretrained weights for the SSEmb-MSATransformer and SSEmb-GVPGNN modules.
-    * `optimizer_weights`: Contains the parameters for the optimizer at time of early-stopping.
+    * `model_weights`: Contains final weights for the SSEmb-MSATransformer and SSEmb-GVPGNN modules.
+    * `optimizer_weights`: Contains parameters for the optimizer at time of early-stopping.
     * `msa`: Contains MSAs for the proteins in the training set.
 * `mave_val`:
     * `msa`: Contains MSAs for the proteins in the MAVE validation set.
@@ -19,8 +19,8 @@ The directory contains the folding subdirectories:<br>
     * `structure`: Contains AlphaFold-2 generated structures used for the ProteinGym test.
     * `msa`: Contains the MSAs for the proteins in the ProteinGym test set.
 * `scannet`:
-    * `model_weights`: Contains pretrained weights for the SSEmb downstream model trained on the ScanNet data set.
-    * `optimizer_weights`: Contains the parameters for the optimizer at time of early-stopping.
+    * `model_weights`: Contains final weights for the SSEmb downstream model trained on the ScanNet data set.
+    * `optimizer_weights`: Contains parameters for the optimizer at time of early-stopping.
     * `msa`: Contains MSAs for the proteins in the ScanNet data set.
 
 ## Execution
