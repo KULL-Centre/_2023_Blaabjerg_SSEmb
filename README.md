@@ -16,7 +16,7 @@ The directory contains the folding subdirectories:<br>
 * `rocklin`:
     * `msa`: Contains MSAs for the proteins in the mega-scale stability change test set.
 * `proteingym`:
-    * `structure`: Contains the AlphaFold-2 generated structures used for the ProteinGym test.
+    * `structure`: Contains AlphaFold-2 generated structures used for the ProteinGym test.
     * `msa`: Contains the MSAs for the proteins in the ProteinGym test set.
 * `scannet`:
     * `model_weights`: Contains pretrained weights for the SSEmb downstream model trained on the ScanNet data set.
