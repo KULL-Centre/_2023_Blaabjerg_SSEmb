@@ -12,7 +12,7 @@ The directory contains the folding subdirectories:<br>
     * `optimizer_weights`: Contains the parameters for the optimizer at time of early-stopping.
     * `msa`: Contains MSAs for the proteins in the training set.
 * `mave_val`:
-    * `msa`: Contains MSAs for the proteins in the validation set.
+    * `msa`: Contains MSAs for the proteins in the MAVE validation set.
 * `rocklin`:
     * `msa`: Contains MSAs for the proteins in the mega-scale stability change test set.
 * `proteingym`:
