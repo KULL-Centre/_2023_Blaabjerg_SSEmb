@@ -5,8 +5,8 @@ This repository contains scripts and data to repeat the analyses in Blaabjerg et
 XXX
 
 ## Downloads 
-Data related to the paper can be download here: [https://zenodo.org/records/10362251](https://zenodo.org/records/10362251).\
-The directory contains the folding subdirectories:\
+Data related to the paper can be download here: [https://zenodo.org/records/10362251](https://zenodo.org/records/10362251).<br>
+The directory contains the folding subdirectories:<br>
 * `train`
     * `model_weights`: Contains pretrained weights for the SSEmb-MSATransformer and SSEmb-GVPGNN modules.
     * `optimizer_weights`: Contains the parameters for the optimizer at time of early-stopping.
@@ -24,7 +24,7 @@ The directory contains the folding subdirectories:\
     * `msa`: Contains MSAs for the proteins in the ScanNet data set.
 
 ## Execution
-Execute the pipeline using `src/run_pipeline.py`.\
+Execute the pipeline using `src/run_pipeline.py`.<br>
 This main script will call other scripts in the `src` directory to train, validate and test the SSEmb model as described in the paper.
 
 ## Citation
@@ -35,9 +35,9 @@ XXX
 Source code and model weights are licensed under the MIT License.
 
 ## Acknowledgements
-Code for the MSA Transformer was developed by the ESM team at Meta Research:\
+Code for the MSA Transformer was developed by the ESM team at Meta Research:<br>
 [https://github.com/facebookresearch/esm](https://github.com/facebookresearch/esm).
 <br/><br/>
-Code for the GVP-GNN was developed by Jing et al:\
+Code for the GVP-GNN was developed by Jing et al:<br>
 [https://github.com/drorlab/gvp-pytorch](https://github.com/drorlab/gvp-pytorch).
 
