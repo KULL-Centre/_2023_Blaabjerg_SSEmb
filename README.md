@@ -46,10 +46,6 @@ The directory contains the folding subdirectories:<br>
     * `model_weights`: Final weights for the SSEmb downstream model trained on the ScanNet data set.
     * `optimizer_weights`: Parameters for the optimizer at time of early-stopping.
     * `msa`: MSAs for the proteins in the ScanNet data set.
-      
-## Citation
-Please cite:
-XXX
 
 ## License
 Source code and model weights are licensed under the MIT License.
@@ -60,4 +56,8 @@ Code for the MSA Transformer was developed by the ESM team at Meta Research:<br>
 <br/><br/>
 Code for the GVP-GNN was developed by Jing et al:<br>
 [https://github.com/drorlab/gvp-pytorch](https://github.com/drorlab/gvp-pytorch).
+
+## Citation
+Please cite:
+XXX
 
