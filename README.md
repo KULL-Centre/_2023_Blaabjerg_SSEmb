@@ -4,6 +4,10 @@
 This repository contains scripts and data to repeat the analyses in Blaabjerg et al.:
 XXX
 
+## Execution
+Execute the pipeline using `src/run_pipeline.py`.<br>
+This main script will call other scripts in the `src` directory to train, validate and test the SSEmb model as described in the paper.
+
 ## Downloads 
 Data related to the paper can be download here: [https://zenodo.org/records/10362251](https://zenodo.org/records/10362251).<br>
 The directory contains the folding subdirectories:<br>
@@ -22,11 +26,7 @@ The directory contains the folding subdirectories:<br>
     * `model_weights`: Final weights for the SSEmb downstream model trained on the ScanNet data set.
     * `optimizer_weights`: Parameters for the optimizer at time of early-stopping.
     * `msa`: MSAs for the proteins in the ScanNet data set.
-
-## Execution
-Execute the pipeline using `src/run_pipeline.py`.<br>
-This main script will call other scripts in the `src` directory to train, validate and test the SSEmb model as described in the paper.
-
+      
 ## Citation
 Please cite:
 XXX
