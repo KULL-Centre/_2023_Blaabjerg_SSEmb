@@ -9,8 +9,8 @@ Execute the pipeline using `src/run_pipeline.py`.<br>
 This main script will call other scripts in the `src` directory to train, validate and test the SSEmb model as described in the paper.
 
 ## Requirements
-The code has been developed and tested in a UNIX environment using the following packages:<br>
-* python==3.7.16
+The code has been developed and tested in a Unix environment using the following packages:<br>
+* `python==3.7.16`
 * pytorch==1.13.1
 * pyg==2.2.0
 * pytorch-scatter==2.1.0
