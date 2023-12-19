@@ -59,5 +59,20 @@ Code for the GVP-GNN was developed by Jing et al:<br>
 
 ## Citation
 Please cite:
-XXX
+
+*Lasse M. Blaabjerg, Nicolas Jonsson, Wouter Boomsma, Amelie Stein, Kresten Lindorff-Larsen (2023). A joint embedding of protein sequence and structure enables robust variant effect predictions. bioRxiv, 2023.12.*
+
+```
+@article {Blaabjerg2023.12.14.571755,
+	author = {Lasse M. Blaabjerg and Nicolas Jonsson and Wouter Boomsma and Amelie Stein and Kresten Lindorff-Larsen},
+	title = {A joint embedding of protein sequence and structure enables robust variant effect predictions},
+	elocation-id = {2023.12.14.571755},
+	year = {2023},
+	doi = {10.1101/2023.12.14.571755},
+	URL = {https://www.biorxiv.org/content/early/2023/12/16/2023.12.14.571755},
+	eprint = {https://www.biorxiv.org/content/early/2023/12/16/2023.12.14.571755.full.pdf},
+	journal = {bioRxiv}
+}
+```
+
 
