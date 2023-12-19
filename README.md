@@ -1,7 +1,7 @@
 # A joint embedding of protein sequence and structure enables robust variant effect predictions
 
 ## Introduction
-This repository contains scripts and data to repeat the analyses in Blaabjerg et al.:
+This repository contains scripts and data to repeat the analyses in Blaabjerg et al.:<br>
 [*"A joint embedding of protein sequence and structure enables robust variant effect predictions"*](https://www.biorxiv.org/content/10.1101/2023.12.14.571755v1).
 
 ## Execution
