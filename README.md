@@ -51,10 +51,10 @@ The directory contains the folding subdirectories:<br>
 Source code and model weights are licensed under the MIT License.
 
 ## Acknowledgements
-Code for the MSA Transformer was developed by the ESM team at Meta Research:<br>
+Code for the original MSA Transformer was developed by the ESM team at Meta Research:<br>
 [https://github.com/facebookresearch/esm](https://github.com/facebookresearch/esm).
 <br/><br/>
-Code for the GVP-GNN was developed by Jing et al:<br>
+Code for the original GVP-GNN was developed by Jing et al:<br>
 [https://github.com/drorlab/gvp-pytorch](https://github.com/drorlab/gvp-pytorch).
 
 ## Citation
