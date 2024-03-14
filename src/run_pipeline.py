@@ -129,7 +129,7 @@ def main(rank, world_size):
             "../data/train/cath/msa/",
         ]
     )
-    subprocess.run(["python", "merge_and_sort_msa.py", "../data/train/cath/msa"])
+    subprocess.run(["python", "merge_and_sort_msas.py", "../data/train/cath/msa"])
 
     # Add MSAs
     for i, entry in enumerate(cath.total):
