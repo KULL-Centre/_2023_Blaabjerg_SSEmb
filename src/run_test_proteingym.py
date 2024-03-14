@@ -112,7 +112,7 @@ def test(run_name, epoch, num_ensemble=1, device=None):
             "../data/test/proteingym/msa/",
         ]
     )
-    subprocess.run(["python", "merge_and_sort_msa.py", "../data/test/proteingym/msa"])
+    subprocess.run(["python", "merge_and_sort_msas.py", "../data/test/proteingym/msa"])
 
     val_list = [
         "NUD15_HUMAN_Suiter_2020",
