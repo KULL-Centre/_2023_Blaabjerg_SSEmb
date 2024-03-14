@@ -221,7 +221,7 @@ def run(run_name, epoch, device=None):
             "../data/test/scannet/msa/",
         ]
     )
-    subprocess.run(["python", "merge_and_sort_msa.py", "../data/test/scannet/msa"])
+    subprocess.run(["python", "merge_and_sort_msas.py", "../data/test/scannet/msa"])
 
     # Load structure data
     with open(f"../data/test/scannet/structure/coords.json") as json_file:
