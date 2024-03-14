@@ -77,7 +77,7 @@ def test(run_name, epoch, num_ensemble=1, get_mean_metrics=False, device=None):
             "../data/test/mave_val/msa/",
         ]
     )
-    subprocess.run(["python", "merge_and_sort_msa.py", "../data/test/mave_val/msa"])
+    subprocess.run(["python", "merge_and_sort_msas.py", "../data/test/mave_val/msa"])
 
     # Load MSA data
     msa_filenames = sorted(glob.glob(f"../data/test/mave_val/msa/*.a3m"))
