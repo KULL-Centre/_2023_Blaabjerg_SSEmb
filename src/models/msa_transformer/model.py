@@ -5,7 +5,6 @@
 
 import torch
 import torch.nn as nn
-import argparse
 
 from .modules import (
     AxialTransformerLayer,
