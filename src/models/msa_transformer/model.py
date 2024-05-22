@@ -93,19 +93,19 @@ class MSATransformer(nn.Module):
         )
         # fmt: on
 
-    def __init__(self, alphabet):
+    def __init__(self):
         super().__init__()
         parser = argparse.ArgumentParser(description='Make things happen.')
         self.add_args(parser)
         
         self.args = parser.parse_args()
-        self.alphabet_size = len(alphabet)
-        self.padding_idx = alphabet.padding_idx
-        self.mask_idx = alphabet.mask_idx
-        self.cls_idx = alphabet.cls_idx
-        self.eos_idx = alphabet.eos_idx
-        self.prepend_bos = alphabet.prepend_bos
-        self.append_eos = alphabet.append_eos
+        self.alphabet_size = 33
+        self.padding_idx = 1
+        self.mask_idx = 32
+        self.cls_idx = 0
+        self.eos_idx = 2
+        self.prepend_bos = True
+        self.append_eos = False
 
         self.embed_tokens = nn.Embedding(
             self.alphabet_size, self.args.embed_dim, padding_idx=self.padding_idx
