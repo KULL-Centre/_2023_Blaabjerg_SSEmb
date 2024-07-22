@@ -51,6 +51,7 @@ The directory contains the folding subdirectories:<br>
 Source code and model weights are licensed under the MIT License.
 
 ## Acknowledgements
+We thank Milot Mirdita and the rest of the ColabFold Search team for help in setting up Colab-based SSEmbLab pipeline.
 Code for the original MSA Transformer was developed by the ESM team at Meta Research:<br>
 [https://github.com/facebookresearch/esm](https://github.com/facebookresearch/esm).
 <br/><br/>
