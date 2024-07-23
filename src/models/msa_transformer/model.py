@@ -5,7 +5,6 @@
 
 import torch
 import torch.nn as nn
-import argparse
 
 from .modules import (
     AxialTransformerLayer,
@@ -19,138 +18,67 @@ from .axial_attention import RowSelfAttention, ColumnSelfAttention
 from .__init__ import LayerNorm, tuple_index
 
 class MSATransformer(nn.Module):
-    @classmethod
-    def add_args(cls, parser):
-        # fmt: off
-        parser.add_argument(
-            "--layers",
-            default=12,
-            type=int,
-            metavar="N",
-            help="number of layers"
-        )
-        parser.add_argument(
-            "--embed_dim",
-            default=768,
-            type=int,
-            metavar="N",
-            help="embedding dimension"
-        )
-        parser.add_argument(
-            "--logit_bias",
-            action="store_true",
-            help="whether to apply bias to logits"
-        )
-        parser.add_argument(
-            "--ffn_embed_dim",
-            default=3072,
-            type=int,
-            metavar="N",
-            help="embedding dimension for FFN",
-        )
-        parser.add_argument(
-            "--attention_heads",
-            default=12,
-            type=int,
-            metavar="N",
-            help="number of attention heads",
-        )
-        parser.add_argument(
-            "--dropout",
-            default=0.1,
-            type=float,
-            help="Dropout to apply."
-        )
-        parser.add_argument(
-            "--attention_dropout",
-            default=0.1,
-            type=float,
-            help="Dropout to apply."
-        )
-        parser.add_argument(
-            "--activation_dropout",
-            default=0.1,
-            type=float,
-            help="Dropout to apply."
-        )
-        parser.add_argument(
-            "--max_tokens_per_msa",
-            default=2 ** 22,
-            type=int,
-            help=(
-                "Used during inference to batch attention computations in a single "
-                "forward pass. This allows increased input sizes with less memory."
-            ),
-        )
-        parser.add_argument( # OBS: Manually crafted
-            "--max_positions",
-            default=1024,
-            type=int,
-        )
-        parser.add_argument( # OBS: Manually crafted
-            "--embed_positions_msa",
-            action="store_false",
-        )
-        # fmt: on
-
-    def __init__(self, alphabet):
+    def __init__(self):
         super().__init__()
-        parser = argparse.ArgumentParser(description='Make things happen.')
-        self.add_args(parser)
-        
-        self.args = parser.parse_args()
-        self.alphabet_size = len(alphabet)
-        self.padding_idx = alphabet.padding_idx
-        self.mask_idx = alphabet.mask_idx
-        self.cls_idx = alphabet.cls_idx
-        self.eos_idx = alphabet.eos_idx
-        self.prepend_bos = alphabet.prepend_bos
-        self.append_eos = alphabet.append_eos
+        self.num_layers = 12
+        self.embed_dim = 768
+        self.logit_bias = True
+        self.ffn_embed_dim = 3072
+        self.attention_heads = 12
+        self.dropout = 0.1
+        self.attention_dropout = 0.1
+        self.activation_dropout = 0.1
+        self.max_tokens_per_msa = 2 ** 22
+        self.max_positions = 1024
+        self.embed_positions_msa = False
+        self.alphabet_size = 33
+        self.padding_idx = 1
+        self.mask_idx = 32
+        self.cls_idx = 0
+        self.eos_idx = 2
+        self.prepend_bos = True
+        self.append_eos = False
 
         self.embed_tokens = nn.Embedding(
-            self.alphabet_size, self.args.embed_dim, padding_idx=self.padding_idx
+            self.alphabet_size, self.embed_dim, padding_idx=self.padding_idx
         )
 
-        if getattr(self.args, "embed_positions_msa", False):
-            emb_dim = getattr(self.args, "embed_positions_msa_dim", self.args.embed_dim)
-            self.msa_position_embedding = nn.Parameter(
-                0.01 * torch.randn(1, 1024, 1, emb_dim),
+        self.msa_position_embedding = nn.Parameter(
+                0.01 * torch.randn(1, 1024, 1, self.embed_dim),
                 requires_grad=True,
-            )
-        else:
-            self.register_parameter("msa_position_embedding", None)
+                )
 
-        self.dropout_module = nn.Dropout(self.args.dropout)
+        self.dropout_module = nn.Dropout(self.dropout)
         self.layers = nn.ModuleList(
             [
                 AxialTransformerLayer(
-                    self.args.embed_dim,
-                    self.args.ffn_embed_dim,
-                    self.args.attention_heads,
-                    self.args.dropout,
-                    self.args.attention_dropout,
-                    self.args.activation_dropout,
-                    getattr(self.args, "max_tokens_per_msa", self.args.max_tokens_per_msa),
+                    self.embed_dim,
+                    self.ffn_embed_dim,
+                    self.attention_heads,
+                    self.dropout,
+                    self.attention_dropout,
+                    self.activation_dropout,
+                    self.max_tokens_per_msa,
                 )
-                for _ in range(self.args.layers)
+                for _ in range(self.num_layers)
             ]
         )
 
         self.contact_head = ContactPredictionHead(
-            self.args.layers * self.args.attention_heads,
+            self.num_layers * self.attention_heads,
             self.prepend_bos,
             self.append_eos,
             eos_idx=self.eos_idx,
         )
         self.embed_positions = LearnedPositionalEmbedding(
-            self.args.max_positions,
-            self.args.embed_dim,
+            self.max_positions,
+            self.embed_dim,
             self.padding_idx,
         )
-        self.emb_layer_norm_before = ESM1bLayerNorm(self.args.embed_dim)
-        self.emb_layer_norm_after = ESM1bLayerNorm(self.args.embed_dim)
+        self.emb_layer_norm_before = ESM1bLayerNorm(self.embed_dim)
+        self.emb_layer_norm_after = ESM1bLayerNorm(self.embed_dim)
         self.lm_head = RobertaLMHead(
-            embed_dim=self.args.embed_dim,
+            embed_dim=self.embed_dim,
             output_dim=self.alphabet_size,
             weight=self.embed_tokens.weight,
         )

@@ -144,7 +144,6 @@ def run(run_name, epoch, device=None):
     for i, pdbid in enumerate(pdb_list):
         print(f"{i+1}/{len(pdb_list)}")
         print(pdbid)
-        f = io.StringIO()
         out = ""
         if os.path.exists(f"../data/test/scannet/raw/{pdbid}.pdb"):
             print("PDB file already downloaded")
@@ -221,7 +220,7 @@ def run(run_name, epoch, device=None):
             "../data/test/scannet/msa/",
         ]
     )
-    subprocess.run(["python", "merge_and_sort_msa.py", "../data/test/scannet/msa"])
+    subprocess.run(["python", "merge_and_sort_msas.py", "../data/test/scannet/msa"])
 
     # Load structure data
     with open(f"../data/test/scannet/structure/coords.json") as json_file:

@@ -1,4 +1,5 @@
 import os
+import pickle
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -10,7 +11,8 @@ plt.rcParams["figure.dpi"] = 400
 plt.rcParams["figure.figsize"] = [9.0, 9.0]
 plt.rcParams.update({"font.size": 14})
 from scipy import stats
-from sklearn.metrics import auc
+import mpl_scatter_density
+from sklearn.metrics import auc, roc_curve
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.offsetbox import AnchoredText
 from matplotlib.ticker import FormatStrFormatter
@@ -28,6 +30,31 @@ white_viridis = LinearSegmentedColormap.from_list(
     ],
     N=256,
 )
+
+def plot_aucroc(df):
+    # Initialize
+    fig, ax = plt.subplots()
+
+    # Compute AUCROC
+    true = pd.factorize(df["label"])[0]
+    pred = -df["score_ml"].values
+    fpr, tpr, threshold = roc_curve(true, pred)
+    auc_roc = auc(fpr, tpr)
+
+    # Plot
+    ax.plot(
+        fpr,
+        tpr,
+        label=f"SSEmb AUC: {auc_roc:.3f}",
+    )
+    ax.legend(loc="lower right")
+    ax.set_xlabel("False positive rate")
+    ax.set_ylabel("True positive rate")
+    fig.savefig(
+        f"../output/proteingym_clinvar/roc_curve.pdf",
+        bbox_inches="tight",
+    )
+    plt.close()
 
 
 def plot_precision_recall(recall_list, precision_list):
@@ -316,7 +343,11 @@ def plot_learning_curve(loss_train, loss_val, acc_train, acc_val, run_name):
             )
 
 
-def plot_proteingym(df, run_name, benchmark_dms_exclude_list=None):
+def plot_proteingym(df, run_name, epoch):
+    # Load list of assays to exclude
+    with open(f"../data/test/proteingym/val_list.pkl", "rb") as fp:  # Unpickling
+        benchmark_dms_exclude_list = pickle.load(fp)
+
     # Compute correlations per DMS_id
     df = df.rename(columns={"dms_id": "DMS_id"})
     corr_obj = (
@@ -386,23 +417,24 @@ def plot_proteingym(df, run_name, benchmark_dms_exclude_list=None):
     df_msamedium = df[df["Neff_L_category"] == "medium"]
     df_msahigh = df[df["Neff_L_category"] == "high"]
 
+    print(f"RESULTS FOR MODEL: {run_name}_{epoch}:")
     print(f"SSEmb - Low MSA depth - Spearman: {df_msalow['SSEmb'].mean():.3f}")
     print(
         f"MSA Transformer - Low MSA depth - Spearman: {df_msalow['MSA_Transformer_ensemble'].mean():.3f}"
     )
     print(
-        f"TranceptEVE_L - Low MSA depth - Spearman: {df_msalow['TranceptEVE_L'].mean():.4f}"
+        f"TranceptEVE_L - Low MSA depth - Spearman: {df_msalow['TranceptEVE_L'].mean():.3f}"
     )
     print(f"GEMME - Low MSA depth - Spearman: {df_msalow['GEMME'].mean():.3f}")
     print(
         f"EVE_ensemble - Low MSA depth - Spearman: {df_msalow['EVE_ensemble'].mean():.3f}"
     )
     print(
-        f"Tranception_L - Low MSA depth - Spearman: {df_msalow['Tranception_L_retrieval'].mean():.4f}"
+        f"Tranception_L - Low MSA depth - Spearman: {df_msalow['Tranception_L_retrieval'].mean():.3f}"
     )
     print(f"VESPA - Low MSA depth - Spearman: {df_msalow['VESPA'].mean():.3f}")
     print(
-        f"EVE_single - Low MSA depth - Spearman: {df_msalow['EVE_single'].mean():.4f}"
+        f"EVE_single - Low MSA depth - Spearman: {df_msalow['EVE_single'].mean():.3f}"
     )
     print(
         f"Tranception_M - Low MSA depth - Spearman: {df_msalow['Tranception_M_retrieval'].mean():.3f}"
@@ -413,14 +445,14 @@ def plot_proteingym(df, run_name, benchmark_dms_exclude_list=None):
         f"MSA Transformer - Medium MSA depth - Spearman: {df_msamedium['MSA_Transformer_ensemble'].mean():.3f}"
     )
     print(
-        f"TranceptEVE_L - Medium MSA depth - Spearman: {df_msamedium['TranceptEVE_L'].mean():.4f}"
+        f"TranceptEVE_L - Medium MSA depth - Spearman: {df_msamedium['TranceptEVE_L'].mean():.3f}"
     )
     print(f"GEMME - Medium MSA depth - Spearman: {df_msamedium['GEMME'].mean():.3f}")
     print(
         f"EVE_ensemble - Medium MSA depth - Spearman: {df_msamedium['EVE_ensemble'].mean():.3f}"
     )
     print(
-        f"Tranception_L - Medium MSA depth - Spearman: {df_msamedium['Tranception_L_retrieval'].mean():.4f}"
+        f"Tranception_L - Medium MSA depth - Spearman: {df_msamedium['Tranception_L_retrieval'].mean():.3f}"
     )
     print(f"VESPA - Medium MSA depth - Spearman: {df_msamedium['VESPA'].mean():.3f}")
     print(
@@ -442,7 +474,7 @@ def plot_proteingym(df, run_name, benchmark_dms_exclude_list=None):
         f"EVE_ensemble - High MSA depth - Spearman: {df_msahigh['EVE_ensemble'].mean():.3f}"
     )
     print(
-        f"Tranception_L - High MSA depth - Spearman: {df_msahigh['Tranception_L_retrieval'].mean():.4f}"
+        f"Tranception_L - High MSA depth - Spearman: {df_msahigh['Tranception_L_retrieval'].mean():.3f}"
     )
     print(f"VESPA - High MSA depth - Spearman: {df_msahigh['VESPA'].mean():.3f}")
     print(
@@ -452,20 +484,20 @@ def plot_proteingym(df, run_name, benchmark_dms_exclude_list=None):
         f"Tranception_M - High MSA depth - Spearman: {df_msahigh['Tranception_M_retrieval'].mean():.3f}"
     )
 
-    print(f"SSEmb - All MSA depth - Spearman: {df['SSEmb'].mean():.4f}")
+    print(f"SSEmb - All MSA depth - Spearman: {df['SSEmb'].mean():.3f}")
     print(
-        f"MSA Transformer - All MSA depth - Spearman: {df['MSA_Transformer_ensemble'].mean():.4f}"
+        f"MSA Transformer - All MSA depth - Spearman: {df['MSA_Transformer_ensemble'].mean():.3f}"
     )
-    print(f"TranceptEVE_L - All MSA depth - Spearman: {df['TranceptEVE_L'].mean():.4f}")
-    print(f"GEMME - All MSA depth - Spearman: {df['GEMME'].mean():.4f}")
+    print(f"TranceptEVE_L - All MSA depth - Spearman: {df['TranceptEVE_L'].mean():.3f}")
+    print(f"GEMME - All MSA depth - Spearman: {df['GEMME'].mean():.3f}")
     print(f"EVE_ensemble - All MSA depth - Spearman: {df['EVE_ensemble'].mean():.3f}")
     print(
         f"Tranception_L - All MSA depth - Spearman: {df['Tranception_L_retrieval'].mean():.3f}"
     )
-    print(f"VESPA - All MSA depth - Spearman: {df['VESPA'].mean():.5f}")
-    print(f"EVE_single - All MSA depth - Spearman: {df['EVE_single'].mean():.5f}")
+    print(f"VESPA - All MSA depth - Spearman: {df['VESPA'].mean():.3f}")
+    print(f"EVE_single - All MSA depth - Spearman: {df['EVE_single'].mean():.3f}")
     print(
-        f"Tranception_M - All MSA depth - Spearman: {df['Tranception_M_retrieval'].mean():.4f}"
+        f"Tranception_M - All MSA depth - Spearman: {df['Tranception_M_retrieval'].mean():.3f}"
     )
 
     # Make plot - All
@@ -491,7 +523,7 @@ def plot_proteingym(df, run_name, benchmark_dms_exclude_list=None):
 
     # Save fig
     fig.savefig(
-        f"../output/proteingym/proteingym_scatter_{run_name}.pdf", bbox_inches="tight"
+        f"../output/proteingym/proteingym_scatter_{run_name}_{epoch}.pdf", bbox_inches="tight"
     )
 
     # Make plot - MSA low
@@ -517,6 +549,637 @@ def plot_proteingym(df, run_name, benchmark_dms_exclude_list=None):
 
     # Save fig
     fig.savefig(
-        f"../output/proteingym/proteingym_scatter_{run_name}_msalow.pdf",
+        f"../output/proteingym/proteingym_scatter_{run_name}_{epoch}_msalow.pdf",
+        bbox_inches="tight",
+    )
+
+
+def plot_proteingym_default(df, run_name, epoch):
+    # Load list of assays to exclude
+    with open(f"../data/test/proteingym_default/val_list.pkl", "rb") as fp:  # Unpickling
+        benchmark_dms_exclude_list = pickle.load(fp)
+
+    # Compute correlations per DMS_id
+    df = df.rename(columns={"dms_id": "DMS_id"})
+    corr_obj = (
+        df.groupby("DMS_id")[["score_ml", "score_dms"]]
+        .corr(method="spearman")
+        .unstack()
+        .iloc[:, 1]
+    )
+    corrs = {
+        list(corr_obj.index)[i]: list(corr_obj.values)[i]
+        for i in range(len(list(corr_obj.index)))
+    }
+    df = pd.DataFrame(corrs.items(), columns=["DMS_id", "SSEmb"])
+    df["SSEmb"] = df["SSEmb"].abs()
+
+    # Mean SSEmb correlations over DMS assays for each UniProt_ID
+    df_reference = pd.read_csv(
+        f"../data/test/proteingym_default/ProteinGym_reference_file_substitutions.csv"
+    )
+    df_reference.loc[
+        df_reference["DMS_id"] == "P53_HUMAN_Kotler_2018", "UniProt_ID"
+    ] = "P53_HUMAN_Kotler"
+    df_reference.loc[
+        df_reference["DMS_id"] == "B3VI55_LIPST_Klesmith_2015", "UniProt_ID"
+    ] = "B3VI55_LIPST"
+    df_reference.loc[
+        df_reference["DMS_id"] == "RL401_YEAST_Mavor_2016", "UniProt_ID"
+    ] = "RL401_YEAST"
+    df_reference.loc[
+        df_reference["DMS_id"] == "RL401_YEAST_Roscoe_2013", "UniProt_ID"
+    ] = "RL401_YEAST"
+    df_reference.loc[
+        df_reference["DMS_id"] == "RL401_YEAST_Roscoe_2014", "UniProt_ID"
+    ] = "RL401_YEAST"
+    df = pd.merge(df, df_reference[["DMS_id", "UniProt_ID"]], on="DMS_id")
+    df = df.groupby("UniProt_ID", as_index=False)[["SSEmb"]].mean()
+
+    # Load ProteinGym UniProt-level benchmark data
+    df_benchmark = pd.read_csv(
+        f"../data/test/proteingym_default/all_models_substitutions_Spearman_DMS_level.csv"
+    )
+    df_benchmark = df_benchmark.rename(columns={"Unnamed: 0": "DMS_id"})
+    df_benchmark = df_benchmark[
+        ~df_benchmark["DMS_id"].isin(benchmark_dms_exclude_list)
+    ]
+    df_benchmark = df_benchmark.groupby(
+        ["UniProt_ID", "Neff_L_category"], as_index=False
+    )[
+        [
+            "UniProt_ID",
+            "Neff_L_category",
+            "MSA_Transformer_ensemble",
+            "TranceptEVE_L",
+            "GEMME",
+            "EVE_ensemble",
+            "Tranception_L_retrieval",
+            "VESPA",
+            "EVE_single",
+            "Tranception_M_retrieval",
+        ]
+    ].mean()
+    df = pd.merge(df, df_benchmark, on="UniProt_ID")
+    df = df.sort_values(["SSEmb"], ascending=False)
+
+    # Print correlations in MSA depth - low/medium/high - regimes
+    df_msalow = df[df["Neff_L_category"] == "low"]
+    df_msamedium = df[df["Neff_L_category"] == "medium"]
+    df_msahigh = df[df["Neff_L_category"] == "high"]
+
+    print(f"RESULTS FOR MODEL: {run_name}_{epoch}:")
+    print(f"SSEmb - Low MSA depth - Spearman: {df_msalow['SSEmb'].mean():.3f}")
+    print(
+        f"MSA Transformer - Low MSA depth - Spearman: {df_msalow['MSA_Transformer_ensemble'].mean():.3f}"
+    )
+    print(
+        f"TranceptEVE_L - Low MSA depth - Spearman: {df_msalow['TranceptEVE_L'].mean():.3f}"
+    )
+    print(f"GEMME - Low MSA depth - Spearman: {df_msalow['GEMME'].mean():.3f}")
+    print(
+        f"EVE_ensemble - Low MSA depth - Spearman: {df_msalow['EVE_ensemble'].mean():.3f}"
+    )
+    print(
+        f"Tranception_L - Low MSA depth - Spearman: {df_msalow['Tranception_L_retrieval'].mean():.3f}"
+    )
+    print(f"VESPA - Low MSA depth - Spearman: {df_msalow['VESPA'].mean():.3f}")
+    print(
+        f"EVE_single - Low MSA depth - Spearman: {df_msalow['EVE_single'].mean():.3f}"
+    )
+    print(
+        f"Tranception_M - Low MSA depth - Spearman: {df_msalow['Tranception_M_retrieval'].mean():.3f}"
+    )
+
+    print(f"SSEmb - Medium MSA depth - Spearman: {df_msamedium['SSEmb'].mean():.3f}")
+    print(
+        f"MSA Transformer - Medium MSA depth - Spearman: {df_msamedium['MSA_Transformer_ensemble'].mean():.3f}"
+    )
+    print(
+        f"TranceptEVE_L - Medium MSA depth - Spearman: {df_msamedium['TranceptEVE_L'].mean():.3f}"
+    )
+    print(f"GEMME - Medium MSA depth - Spearman: {df_msamedium['GEMME'].mean():.3f}")
+    print(
+        f"EVE_ensemble - Medium MSA depth - Spearman: {df_msamedium['EVE_ensemble'].mean():.3f}"
+    )
+    print(
+        f"Tranception_L - Medium MSA depth - Spearman: {df_msamedium['Tranception_L_retrieval'].mean():.3f}"
+    )
+    print(f"VESPA - Medium MSA depth - Spearman: {df_msamedium['VESPA'].mean():.3f}")
+    print(
+        f"EVE_single - Medium MSA depth - Spearman: {df_msamedium['EVE_single'].mean():.3f}"
+    )
+    print(
+        f"Tranception_M - Medium MSA depth - Spearman: {df_msamedium['Tranception_M_retrieval'].mean():.3f}"
+    )
+
+    print(f"SSEmb - High MSA depth - Spearman: {df_msahigh['SSEmb'].mean():.3f}")
+    print(
+        f"MSA Transformer - High MSA depth - Spearman: {df_msahigh['MSA_Transformer_ensemble'].mean():.3f}"
+    )
+    print(
+        f"TranceptEVE_L - High MSA depth - Spearman: {df_msahigh['TranceptEVE_L'].mean():.3f}"
+    )
+    print(f"GEMME - High MSA depth - Spearman: {df_msahigh['GEMME'].mean():.3f}")
+    print(
+        f"EVE_ensemble - High MSA depth - Spearman: {df_msahigh['EVE_ensemble'].mean():.3f}"
+    )
+    print(
+        f"Tranception_L - High MSA depth - Spearman: {df_msahigh['Tranception_L_retrieval'].mean():.3f}"
+    )
+    print(f"VESPA - High MSA depth - Spearman: {df_msahigh['VESPA'].mean():.3f}")
+    print(
+        f"EVE_single - High MSA depth - Spearman: {df_msahigh['EVE_single'].mean():.3f}"
+    )
+    print(
+        f"Tranception_M - High MSA depth - Spearman: {df_msahigh['Tranception_M_retrieval'].mean():.3f}"
+    )
+
+    print(f"SSEmb - All MSA depth - Spearman: {df['SSEmb'].mean():.3f}")
+    print(
+        f"MSA Transformer - All MSA depth - Spearman: {df['MSA_Transformer_ensemble'].mean():.3f}"
+    )
+    print(f"TranceptEVE_L - All MSA depth - Spearman: {df['TranceptEVE_L'].mean():.3f}")
+    print(f"GEMME - All MSA depth - Spearman: {df['GEMME'].mean():.3f}")
+    print(f"EVE_ensemble - All MSA depth - Spearman: {df['EVE_ensemble'].mean():.3f}")
+    print(
+        f"Tranception_L - All MSA depth - Spearman: {df['Tranception_L_retrieval'].mean():.3f}"
+    )
+    print(f"VESPA - All MSA depth - Spearman: {df['VESPA'].mean():.3f}")
+    print(f"EVE_single - All MSA depth - Spearman: {df['EVE_single'].mean():.3f}")
+    print(
+        f"Tranception_M - All MSA depth - Spearman: {df['Tranception_M_retrieval'].mean():.3f}"
+    )
+
+    # Make plot - All
+    fig, ax = plt.subplots()
+    x = [i for i in range(len(df))]
+    ax.scatter(
+        df["UniProt_ID"],
+        df["SSEmb"],
+        label=f"SSEmb $\\rho_S$: {df['SSEmb'].mean():.2f} $\pm$ {df['SSEmb'].sem():.2f}",
+        s=20,
+        marker=",",
+    )
+    ax.scatter(
+        df["UniProt_ID"],
+        df["MSA_Transformer_ensemble"],
+        label=f"MSA Transformer $\\rho_S$: {df['MSA_Transformer_ensemble'].mean():.2f} $\pm$ {df['MSA_Transformer_ensemble'].sem():.2f}",
+        s=20,
+    )
+    ax.set_ylim(0.0, 0.75)
+    ax.legend(loc="upper right")
+    ax.set_xticklabels(df["UniProt_ID"], rotation=45, ha="right", fontsize=5)
+    ax.set_ylabel("Spearman $\\rho_S$")
+
+    # Save fig
+    fig.savefig(
+        f"../output/proteingym_default/proteingym_scatter_{run_name}_{epoch}.pdf", bbox_inches="tight"
+    )
+
+    # Make plot - MSA low
+    fig, ax = plt.subplots()
+    x = [i for i in range(len(df))]
+    ax.scatter(
+        df_msalow["UniProt_ID"],
+        df_msalow["SSEmb"],
+        label=f"SSEmb $\\rho_S$: {df_msalow['SSEmb'].mean():.2f} $\pm$ {df_msalow['SSEmb'].sem():.2f}",
+        s=20,
+        marker=",",
+    )
+    ax.scatter(
+        df_msalow["UniProt_ID"],
+        df_msalow["MSA_Transformer_ensemble"],
+        label=f"MSA Transformer $\\rho_S$: {df_msalow['MSA_Transformer_ensemble'].mean():.2f} $\pm$ {df_msalow['MSA_Transformer_ensemble'].sem():.2f}",
+        s=20,
+    )
+    ax.set_ylim(0.0, 0.75)
+    ax.legend(loc="upper right")
+    ax.set_xticklabels(df_msalow["UniProt_ID"], rotation=45, ha="right", fontsize=10)
+    ax.set_ylabel("Spearman $\\rho_S$")
+
+    # Save fig
+    fig.savefig(
+        f"../output/proteingym_default/proteingym_scatter_{run_name}_{epoch}_msalow.pdf",
+        bbox_inches="tight",
+    )
+
+def plot_proteingym_good(df, run_name, epoch):
+    # Load list of assays to exclude
+    with open(f"../data/test/proteingym_good/val_list.pkl", "rb") as fp:  # Unpickling
+        benchmark_dms_exclude_list = pickle.load(fp)
+
+    # Compute correlations per DMS_id
+    df = df.rename(columns={"dms_id": "DMS_id"})
+    corr_obj = (
+        df.groupby("DMS_id")[["score_ml", "score_dms"]]
+        .corr(method="spearman")
+        .unstack()
+        .iloc[:, 1]
+    )
+    corrs = {
+        list(corr_obj.index)[i]: list(corr_obj.values)[i]
+        for i in range(len(list(corr_obj.index)))
+    }
+    df = pd.DataFrame(corrs.items(), columns=["DMS_id", "SSEmb"])
+    df["SSEmb"] = df["SSEmb"].abs()
+
+    # Mean SSEmb correlations over DMS assays for each UniProt_ID
+    df_reference = pd.read_csv(
+        f"../data/test/proteingym_good/ProteinGym_reference_file_substitutions.csv"
+    )
+    df_reference.loc[
+        df_reference["DMS_id"] == "P53_HUMAN_Kotler_2018", "UniProt_ID"
+    ] = "P53_HUMAN_Kotler"
+    df_reference.loc[
+        df_reference["DMS_id"] == "B3VI55_LIPST_Klesmith_2015", "UniProt_ID"
+    ] = "B3VI55_LIPST"
+    df_reference.loc[
+        df_reference["DMS_id"] == "RL401_YEAST_Mavor_2016", "UniProt_ID"
+    ] = "RL401_YEAST"
+    df_reference.loc[
+        df_reference["DMS_id"] == "RL401_YEAST_Roscoe_2013", "UniProt_ID"
+    ] = "RL401_YEAST"
+    df_reference.loc[
+        df_reference["DMS_id"] == "RL401_YEAST_Roscoe_2014", "UniProt_ID"
+    ] = "RL401_YEAST"
+    df = pd.merge(df, df_reference[["DMS_id", "UniProt_ID"]], on="DMS_id")
+    df = df.groupby("UniProt_ID", as_index=False)[["SSEmb"]].mean()
+
+    # Load ProteinGym UniProt-level benchmark data
+    df_benchmark = pd.read_csv(
+        f"../data/test/proteingym_good/all_models_substitutions_Spearman_DMS_level.csv"
+    )
+    df_benchmark = df_benchmark.rename(columns={"Unnamed: 0": "DMS_id"})
+    df_benchmark = df_benchmark[
+        ~df_benchmark["DMS_id"].isin(benchmark_dms_exclude_list)
+    ]
+    df_benchmark = df_benchmark.groupby(
+        ["UniProt_ID", "Neff_L_category"], as_index=False
+    )[
+        [
+            "UniProt_ID",
+            "Neff_L_category",
+            "MSA_Transformer_ensemble",
+            "TranceptEVE_L",
+            "GEMME",
+            "EVE_ensemble",
+            "Tranception_L_retrieval",
+            "VESPA",
+            "EVE_single",
+            "Tranception_M_retrieval",
+        ]
+    ].mean()
+    df = pd.merge(df, df_benchmark, on="UniProt_ID")
+    df = df.sort_values(["SSEmb"], ascending=False)
+
+    # Print correlations in MSA depth - low/medium/high - regimes
+    df_msalow = df[df["Neff_L_category"] == "low"]
+    df_msamedium = df[df["Neff_L_category"] == "medium"]
+    df_msahigh = df[df["Neff_L_category"] == "high"]
+
+    print(f"RESULTS FOR MODEL: {run_name}_{epoch}:")
+    print(f"SSEmb - Low MSA depth - Spearman: {df_msalow['SSEmb'].mean():.3f}")
+    print(
+        f"MSA Transformer - Low MSA depth - Spearman: {df_msalow['MSA_Transformer_ensemble'].mean():.3f}"
+    )
+    print(
+        f"TranceptEVE_L - Low MSA depth - Spearman: {df_msalow['TranceptEVE_L'].mean():.3f}"
+    )
+    print(f"GEMME - Low MSA depth - Spearman: {df_msalow['GEMME'].mean():.3f}")
+    print(
+        f"EVE_ensemble - Low MSA depth - Spearman: {df_msalow['EVE_ensemble'].mean():.3f}"
+    )
+    print(
+        f"Tranception_L - Low MSA depth - Spearman: {df_msalow['Tranception_L_retrieval'].mean():.3f}"
+    )
+    print(f"VESPA - Low MSA depth - Spearman: {df_msalow['VESPA'].mean():.3f}")
+    print(
+        f"EVE_single - Low MSA depth - Spearman: {df_msalow['EVE_single'].mean():.3f}"
+    )
+    print(
+        f"Tranception_M - Low MSA depth - Spearman: {df_msalow['Tranception_M_retrieval'].mean():.3f}"
+    )
+
+    print(f"SSEmb - Medium MSA depth - Spearman: {df_msamedium['SSEmb'].mean():.3f}")
+    print(
+        f"MSA Transformer - Medium MSA depth - Spearman: {df_msamedium['MSA_Transformer_ensemble'].mean():.3f}"
+    )
+    print(
+        f"TranceptEVE_L - Medium MSA depth - Spearman: {df_msamedium['TranceptEVE_L'].mean():.3f}"
+    )
+    print(f"GEMME - Medium MSA depth - Spearman: {df_msamedium['GEMME'].mean():.3f}")
+    print(
+        f"EVE_ensemble - Medium MSA depth - Spearman: {df_msamedium['EVE_ensemble'].mean():.3f}"
+    )
+    print(
+        f"Tranception_L - Medium MSA depth - Spearman: {df_msamedium['Tranception_L_retrieval'].mean():.3f}"
+    )
+    print(f"VESPA - Medium MSA depth - Spearman: {df_msamedium['VESPA'].mean():.3f}")
+    print(
+        f"EVE_single - Medium MSA depth - Spearman: {df_msamedium['EVE_single'].mean():.3f}"
+    )
+    print(
+        f"Tranception_M - Medium MSA depth - Spearman: {df_msamedium['Tranception_M_retrieval'].mean():.3f}"
+    )
+
+    print(f"SSEmb - High MSA depth - Spearman: {df_msahigh['SSEmb'].mean():.3f}")
+    print(
+        f"MSA Transformer - High MSA depth - Spearman: {df_msahigh['MSA_Transformer_ensemble'].mean():.3f}"
+    )
+    print(
+        f"TranceptEVE_L - High MSA depth - Spearman: {df_msahigh['TranceptEVE_L'].mean():.3f}"
+    )
+    print(f"GEMME - High MSA depth - Spearman: {df_msahigh['GEMME'].mean():.3f}")
+    print(
+        f"EVE_ensemble - High MSA depth - Spearman: {df_msahigh['EVE_ensemble'].mean():.3f}"
+    )
+    print(
+        f"Tranception_L - High MSA depth - Spearman: {df_msahigh['Tranception_L_retrieval'].mean():.3f}"
+    )
+    print(f"VESPA - High MSA depth - Spearman: {df_msahigh['VESPA'].mean():.3f}")
+    print(
+        f"EVE_single - High MSA depth - Spearman: {df_msahigh['EVE_single'].mean():.3f}"
+    )
+    print(
+        f"Tranception_M - High MSA depth - Spearman: {df_msahigh['Tranception_M_retrieval'].mean():.3f}"
+    )
+
+    print(f"SSEmb - All MSA depth - Spearman: {df['SSEmb'].mean():.3f}")
+    print(
+        f"MSA Transformer - All MSA depth - Spearman: {df['MSA_Transformer_ensemble'].mean():.3f}"
+    )
+    print(f"TranceptEVE_L - All MSA depth - Spearman: {df['TranceptEVE_L'].mean():.3f}")
+    print(f"GEMME - All MSA depth - Spearman: {df['GEMME'].mean():.3f}")
+    print(f"EVE_ensemble - All MSA depth - Spearman: {df['EVE_ensemble'].mean():.3f}")
+    print(
+        f"Tranception_L - All MSA depth - Spearman: {df['Tranception_L_retrieval'].mean():.3f}"
+    )
+    print(f"VESPA - All MSA depth - Spearman: {df['VESPA'].mean():.3f}")
+    print(f"EVE_single - All MSA depth - Spearman: {df['EVE_single'].mean():.3f}")
+    print(
+        f"Tranception_M - All MSA depth - Spearman: {df['Tranception_M_retrieval'].mean():.3f}"
+    )
+
+    # Make plot - All
+    fig, ax = plt.subplots()
+    x = [i for i in range(len(df))]
+    ax.scatter(
+        df["UniProt_ID"],
+        df["SSEmb"],
+        label=f"SSEmb $\\rho_S$: {df['SSEmb'].mean():.2f} $\pm$ {df['SSEmb'].sem():.2f}",
+        s=20,
+        marker=",",
+    )
+    ax.scatter(
+        df["UniProt_ID"],
+        df["MSA_Transformer_ensemble"],
+        label=f"MSA Transformer $\\rho_S$: {df['MSA_Transformer_ensemble'].mean():.2f} $\pm$ {df['MSA_Transformer_ensemble'].sem():.2f}",
+        s=20,
+    )
+    ax.set_ylim(0.0, 0.75)
+    ax.legend(loc="upper right")
+    ax.set_xticklabels(df["UniProt_ID"], rotation=45, ha="right", fontsize=5)
+    ax.set_ylabel("Spearman $\\rho_S$")
+
+    # Save fig
+    fig.savefig(
+        f"../output/proteingym_good/proteingym_scatter_{run_name}_{epoch}.pdf", bbox_inches="tight"
+    )
+
+    # Make plot - MSA low
+    fig, ax = plt.subplots()
+    x = [i for i in range(len(df))]
+    ax.scatter(
+        df_msalow["UniProt_ID"],
+        df_msalow["SSEmb"],
+        label=f"SSEmb $\\rho_S$: {df_msalow['SSEmb'].mean():.2f} $\pm$ {df_msalow['SSEmb'].sem():.2f}",
+        s=20,
+        marker=",",
+    )
+    ax.scatter(
+        df_msalow["UniProt_ID"],
+        df_msalow["MSA_Transformer_ensemble"],
+        label=f"MSA Transformer $\\rho_S$: {df_msalow['MSA_Transformer_ensemble'].mean():.2f} $\pm$ {df_msalow['MSA_Transformer_ensemble'].sem():.2f}",
+        s=20,
+    )
+    ax.set_ylim(0.0, 0.75)
+    ax.legend(loc="upper right")
+    ax.set_xticklabels(df_msalow["UniProt_ID"], rotation=45, ha="right", fontsize=10)
+    ax.set_ylabel("Spearman $\\rho_S$")
+
+    # Save fig
+    fig.savefig(
+        f"../output/proteingym_good/proteingym_scatter_{run_name}_{epoch}_msalow.pdf",
+        bbox_inches="tight",
+    )
+
+def plot_proteingym_bad(df, run_name, epoch):
+    # Load list of assays to exclude
+    with open(f"../data/test/proteingym_bad/val_list.pkl", "rb") as fp:  # Unpickling
+        benchmark_dms_exclude_list = pickle.load(fp)
+
+    # Compute correlations per DMS_id
+    df = df.rename(columns={"dms_id": "DMS_id"})
+    corr_obj = (
+        df.groupby("DMS_id")[["score_ml", "score_dms"]]
+        .corr(method="spearman")
+        .unstack()
+        .iloc[:, 1]
+    )
+    corrs = {
+        list(corr_obj.index)[i]: list(corr_obj.values)[i]
+        for i in range(len(list(corr_obj.index)))
+    }
+    df = pd.DataFrame(corrs.items(), columns=["DMS_id", "SSEmb"])
+    df["SSEmb"] = df["SSEmb"].abs()
+
+    # Mean SSEmb correlations over DMS assays for each UniProt_ID
+    df_reference = pd.read_csv(
+        f"../data/test/proteingym_bad/ProteinGym_reference_file_substitutions.csv"
+    )
+    df_reference.loc[
+        df_reference["DMS_id"] == "P53_HUMAN_Kotler_2018", "UniProt_ID"
+    ] = "P53_HUMAN_Kotler"
+    df_reference.loc[
+        df_reference["DMS_id"] == "B3VI55_LIPST_Klesmith_2015", "UniProt_ID"
+    ] = "B3VI55_LIPST"
+    df_reference.loc[
+        df_reference["DMS_id"] == "RL401_YEAST_Mavor_2016", "UniProt_ID"
+    ] = "RL401_YEAST"
+    df_reference.loc[
+        df_reference["DMS_id"] == "RL401_YEAST_Roscoe_2013", "UniProt_ID"
+    ] = "RL401_YEAST"
+    df_reference.loc[
+        df_reference["DMS_id"] == "RL401_YEAST_Roscoe_2014", "UniProt_ID"
+    ] = "RL401_YEAST"
+    df = pd.merge(df, df_reference[["DMS_id", "UniProt_ID"]], on="DMS_id")
+    df = df.groupby("UniProt_ID", as_index=False)[["SSEmb"]].mean()
+
+    # Load ProteinGym UniProt-level benchmark data
+    df_benchmark = pd.read_csv(
+        f"../data/test/proteingym_bad/all_models_substitutions_Spearman_DMS_level.csv"
+    )
+    df_benchmark = df_benchmark.rename(columns={"Unnamed: 0": "DMS_id"})
+    df_benchmark = df_benchmark[
+        ~df_benchmark["DMS_id"].isin(benchmark_dms_exclude_list)
+    ]
+    df_benchmark = df_benchmark.groupby(
+        ["UniProt_ID", "Neff_L_category"], as_index=False
+    )[
+        [
+            "UniProt_ID",
+            "Neff_L_category",
+            "MSA_Transformer_ensemble",
+            "TranceptEVE_L",
+            "GEMME",
+            "EVE_ensemble",
+            "Tranception_L_retrieval",
+            "VESPA",
+            "EVE_single",
+            "Tranception_M_retrieval",
+        ]
+    ].mean()
+    df = pd.merge(df, df_benchmark, on="UniProt_ID")
+    df = df.sort_values(["SSEmb"], ascending=False)
+
+    # Print correlations in MSA depth - low/medium/high - regimes
+    df_msalow = df[df["Neff_L_category"] == "low"]
+    df_msamedium = df[df["Neff_L_category"] == "medium"]
+    df_msahigh = df[df["Neff_L_category"] == "high"]
+
+    print(f"RESULTS FOR MODEL: {run_name}_{epoch}:")
+    print(f"SSEmb - Low MSA depth - Spearman: {df_msalow['SSEmb'].mean():.3f}")
+    print(
+        f"MSA Transformer - Low MSA depth - Spearman: {df_msalow['MSA_Transformer_ensemble'].mean():.3f}"
+    )
+    print(
+        f"TranceptEVE_L - Low MSA depth - Spearman: {df_msalow['TranceptEVE_L'].mean():.3f}"
+    )
+    print(f"GEMME - Low MSA depth - Spearman: {df_msalow['GEMME'].mean():.3f}")
+    print(
+        f"EVE_ensemble - Low MSA depth - Spearman: {df_msalow['EVE_ensemble'].mean():.3f}"
+    )
+    print(
+        f"Tranception_L - Low MSA depth - Spearman: {df_msalow['Tranception_L_retrieval'].mean():.3f}"
+    )
+    print(f"VESPA - Low MSA depth - Spearman: {df_msalow['VESPA'].mean():.3f}")
+    print(
+        f"EVE_single - Low MSA depth - Spearman: {df_msalow['EVE_single'].mean():.3f}"
+    )
+    print(
+        f"Tranception_M - Low MSA depth - Spearman: {df_msalow['Tranception_M_retrieval'].mean():.3f}"
+    )
+
+    print(f"SSEmb - Medium MSA depth - Spearman: {df_msamedium['SSEmb'].mean():.3f}")
+    print(
+        f"MSA Transformer - Medium MSA depth - Spearman: {df_msamedium['MSA_Transformer_ensemble'].mean():.3f}"
+    )
+    print(
+        f"TranceptEVE_L - Medium MSA depth - Spearman: {df_msamedium['TranceptEVE_L'].mean():.3f}"
+    )
+    print(f"GEMME - Medium MSA depth - Spearman: {df_msamedium['GEMME'].mean():.3f}")
+    print(
+        f"EVE_ensemble - Medium MSA depth - Spearman: {df_msamedium['EVE_ensemble'].mean():.3f}"
+    )
+    print(
+        f"Tranception_L - Medium MSA depth - Spearman: {df_msamedium['Tranception_L_retrieval'].mean():.3f}"
+    )
+    print(f"VESPA - Medium MSA depth - Spearman: {df_msamedium['VESPA'].mean():.3f}")
+    print(
+        f"EVE_single - Medium MSA depth - Spearman: {df_msamedium['EVE_single'].mean():.3f}"
+    )
+    print(
+        f"Tranception_M - Medium MSA depth - Spearman: {df_msamedium['Tranception_M_retrieval'].mean():.3f}"
+    )
+
+    print(f"SSEmb - High MSA depth - Spearman: {df_msahigh['SSEmb'].mean():.3f}")
+    print(
+        f"MSA Transformer - High MSA depth - Spearman: {df_msahigh['MSA_Transformer_ensemble'].mean():.3f}"
+    )
+    print(
+        f"TranceptEVE_L - High MSA depth - Spearman: {df_msahigh['TranceptEVE_L'].mean():.3f}"
+    )
+    print(f"GEMME - High MSA depth - Spearman: {df_msahigh['GEMME'].mean():.3f}")
+    print(
+        f"EVE_ensemble - High MSA depth - Spearman: {df_msahigh['EVE_ensemble'].mean():.3f}"
+    )
+    print(
+        f"Tranception_L - High MSA depth - Spearman: {df_msahigh['Tranception_L_retrieval'].mean():.3f}"
+    )
+    print(f"VESPA - High MSA depth - Spearman: {df_msahigh['VESPA'].mean():.3f}")
+    print(
+        f"EVE_single - High MSA depth - Spearman: {df_msahigh['EVE_single'].mean():.3f}"
+    )
+    print(
+        f"Tranception_M - High MSA depth - Spearman: {df_msahigh['Tranception_M_retrieval'].mean():.3f}"
+    )
+
+    print(f"SSEmb - All MSA depth - Spearman: {df['SSEmb'].mean():.3f}")
+    print(
+        f"MSA Transformer - All MSA depth - Spearman: {df['MSA_Transformer_ensemble'].mean():.3f}"
+    )
+    print(f"TranceptEVE_L - All MSA depth - Spearman: {df['TranceptEVE_L'].mean():.3f}")
+    print(f"GEMME - All MSA depth - Spearman: {df['GEMME'].mean():.3f}")
+    print(f"EVE_ensemble - All MSA depth - Spearman: {df['EVE_ensemble'].mean():.3f}")
+    print(
+        f"Tranception_L - All MSA depth - Spearman: {df['Tranception_L_retrieval'].mean():.3f}"
+    )
+    print(f"VESPA - All MSA depth - Spearman: {df['VESPA'].mean():.3f}")
+    print(f"EVE_single - All MSA depth - Spearman: {df['EVE_single'].mean():.3f}")
+    print(
+        f"Tranception_M - All MSA depth - Spearman: {df['Tranception_M_retrieval'].mean():.3f}"
+    )
+
+    # Make plot - All
+    fig, ax = plt.subplots()
+    x = [i for i in range(len(df))]
+    ax.scatter(
+        df["UniProt_ID"],
+        df["SSEmb"],
+        label=f"SSEmb $\\rho_S$: {df['SSEmb'].mean():.2f} $\pm$ {df['SSEmb'].sem():.2f}",
+        s=20,
+        marker=",",
+    )
+    ax.scatter(
+        df["UniProt_ID"],
+        df["MSA_Transformer_ensemble"],
+        label=f"MSA Transformer $\\rho_S$: {df['MSA_Transformer_ensemble'].mean():.2f} $\pm$ {df['MSA_Transformer_ensemble'].sem():.2f}",
+        s=20,
+    )
+    ax.set_ylim(0.0, 0.75)
+    ax.legend(loc="upper right")
+    ax.set_xticklabels(df["UniProt_ID"], rotation=45, ha="right", fontsize=5)
+    ax.set_ylabel("Spearman $\\rho_S$")
+
+    # Save fig
+    fig.savefig(
+        f"../output/proteingym_bad/proteingym_scatter_{run_name}_{epoch}.pdf", bbox_inches="tight"
+    )
+
+    # Make plot - MSA low
+    fig, ax = plt.subplots()
+    x = [i for i in range(len(df))]
+    ax.scatter(
+        df_msalow["UniProt_ID"],
+        df_msalow["SSEmb"],
+        label=f"SSEmb $\\rho_S$: {df_msalow['SSEmb'].mean():.2f} $\pm$ {df_msalow['SSEmb'].sem():.2f}",
+        s=20,
+        marker=",",
+    )
+    ax.scatter(
+        df_msalow["UniProt_ID"],
+        df_msalow["MSA_Transformer_ensemble"],
+        label=f"MSA Transformer $\\rho_S$: {df_msalow['MSA_Transformer_ensemble'].mean():.2f} $\pm$ {df_msalow['MSA_Transformer_ensemble'].sem():.2f}",
+        s=20,
+    )
+    ax.set_ylim(0.0, 0.75)
+    ax.legend(loc="upper right")
+    ax.set_xticklabels(df_msalow["UniProt_ID"], rotation=45, ha="right", fontsize=10)
+    ax.set_ylabel("Spearman $\\rho_S$")
+
+    # Save fig
+    fig.savefig(
+        f"../output/proteingym_bad/proteingym_scatter_{run_name}_{epoch}_msalow.pdf",
         bbox_inches="tight",
     )

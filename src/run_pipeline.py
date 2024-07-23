@@ -24,23 +24,26 @@ from visualization import (
 from helpers import (
     read_msa,
     loop_trainval,
+    prepare_mave_val,
+    prepare_proteingym,
+    prepare_proteingym_bad,
+    prepare_proteingym_default,
 )
-import run_test_mave, run_test_proteingym, run_test_rocklin, run_pipeline_scannet
+import run_test_mave, run_test_proteingym, run_test_proteingym_default, run_test_proteingym_bad, run_test_proteingym_good, run_test_rocklin, run_pipeline_scannet, run_test_clinvar
 import torch.utils.data
 import torch.multiprocessing as mp
 import torch.distributed as dist
 from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-DEVICES = [3, 4, 5, 6, 7, 8, 9]
+#DEVICES = [3, 4, 5, 6, 7, 8, 9]
+DEVICES = [1]
 os.environ["CUDA_VISIBLE_DEVICES"] = ", ".join([str(x) for x in DEVICES])
-
 
 def setup(rank, world_size):
     os.environ["MASTER_ADDR"] = "localhost"
     os.environ["MASTER_PORT"] = "1111"
     dist.init_process_group("nccl", rank=rank, world_size=world_size)
-
 
 def prepare(
     dataset,
@@ -106,12 +109,14 @@ def main(rank, world_size):
     VAL_INTERVAL = 10
     BATCH_PROTS = 128 // len(DEVICES)
     LR_LIST = [1e-3, 1e-6]
-    PATIENCE = 3
+    PATIENCE = 1
 
     ## Load CATH data
     print("Preparing CATH data")
     pdb_dir_cath = "../data/train/cath"
-    subprocess.call([f"{pdb_dir_cath}/getCATH.sh"])
+    subprocess.run([f"bash {pdb_dir_cath}/getCATH.sh"], shell=True)
+    subprocess.run([f"mv chain_set.jsonl {pdb_dir_cath}/chain_set.json"], shell=True)
+    subprocess.run([f"mv chain_set_splits.json {pdb_dir_cath}/chain_set_splits.json"], shell=True) 
     cath = models.gvp.data.CATHDataset(
         path=f"{pdb_dir_cath}/chain_set.json",
         splits_path=f"{pdb_dir_cath}/chain_set_splits.json",
@@ -129,7 +134,7 @@ def main(rank, world_size):
             "../data/train/cath/msa/",
         ]
     )
-    subprocess.run(["python", "merge_and_sort_msa.py", "../data/train/cath/msa"])
+    subprocess.run(["python", "merge_and_sort_msas.py", "../data/train/cath/msa"])
 
     # Add MSAs
     for i, entry in enumerate(cath.total):
@@ -150,17 +155,15 @@ def main(rank, world_size):
     ]
 
     # Filter: Only keep entries without X in sequence
-    [entry for entry in cath.total if "X" not in entry["seq"]]
+    data = [entry for entry in cath.total if "X" not in entry["seq"]]
 
     # Save all training and validation sequences in a fasta file to check homology
     cath.split()
     with open(f"../data/test/mave_val/structure/coords.json") as json_file:
         data_mave_val = json.load(json_file)
-    json_file.close()
 
     with open(f"../data/test/proteingym/structure/coords.json") as json_file:
         data_proteingym = json.load(json_file)
-    json_file.close()
 
     fh = open(f"../data/train/cath/seqs_cath.fasta", "w")
     for entry in cath.train:
@@ -233,6 +236,12 @@ def main(rank, world_size):
     ) as fp:  # Pickling
         pickle.dump(cath.val, fp)
 
+    # Prepare MAVE validation and ProteinGym test data
+    prepare_mave_val()
+    prepare_proteingym()
+    prepare_proteingym_bad()
+    prepare_proteingym_default()
+
     with open(
         f"{pdb_dir_cath}/data_with_msas_filtered_train.pkl", "rb"
     ) as fp:  # Unpickling
@@ -246,14 +255,14 @@ def main(rank, world_size):
     trainset = models.gvp.data.ProteinGraphData(cath.train)
     valset = models.gvp.data.ProteinGraphData(cath.val)
 
-    # Load and initialize MSA Transformer
+    ## Load and initialize MSA Transformer
     model_msa_pre, msa_alphabet = esm.pretrained.esm_msa1b_t12_100M_UR50S()
     torch.save(
         model_msa_pre.state_dict(),
         f"../output/train/models/msa_transformer/pretrained.pt",
     )
     msa_batch_converter = msa_alphabet.get_batch_converter()
-    model_msa = MSATransformer(msa_alphabet)
+    model_msa = MSATransformer()
     model_msa.load_state_dict(
         torch.load(f"../output/train/models/msa_transformer/pretrained.pt")
     )
@@ -263,7 +272,7 @@ def main(rank, world_size):
     for param in model_msa.parameters():
         param.requires_grad = False
 
-    # Load and initialize Flamingo GVP
+    # Load and initialize GVP
     node_dim = (256, 64)
     edge_dim = (32, 1)
     model_gvp = SSEmbGNN((6, 3), node_dim, (32, 1), edge_dim)
@@ -276,7 +285,7 @@ def main(rank, world_size):
         static_graph=False,
     )
 
-    ## Initialize training modules
+    # Initialize training modules
     train_loader = prepare(trainset, rank, world_size, train=True)
     val_loader = prepare(valset, rank, world_size)
     optimizer = torch.optim.Adam(model_gvp.parameters(), lr=LR_LIST[0])
@@ -284,7 +293,7 @@ def main(rank, world_size):
     best_epoch, best_corr_mave = None, 0
     patience_counter = 0
 
-    ## Initialize lists for monitoring loss
+    # Initialize lists for monitoring loss
     epoch_list = []
     loss_train_list, loss_val_list = [], []
     acc_train_list, acc_val_list = [], []
@@ -312,6 +321,9 @@ def main(rank, world_size):
         train_loader.sampler.set_epoch(epoch)
 
         # Train loop
+        model_msa.train()
+        model_gvp.train()
+        
         loss_train, acc_train = loop_trainval(
             model_msa,
             model_gvp,
@@ -332,20 +344,22 @@ def main(rank, world_size):
 
         # Validation loop
         if rank == 0:
-            # Save model
-            path_msa = f"../output/train/models/msa_transformer/{run_name}_msa_transformer_{epoch}.pt"
-            path_gvp = f"../output/train/models/gvp/{run_name}_gvp_{epoch}.pt"
-            path_optimizer = (
-                f"../output/train/models/optimizer/{run_name}_adam_{epoch}.pt"
-            )
-            torch.save(model_msa.state_dict(), path_msa)
-            torch.save(model_gvp.state_dict(), path_gvp)
-            torch.save(optimizer.state_dict(), path_optimizer)
-
-            # Compute validation
             if epoch % VAL_INTERVAL == 0:
+                # Save model
+                path_msa = f"../output/train/models/msa_transformer/{run_name}_msa_transformer_{epoch}.pt"
+                path_gvp = f"../output/train/models/gvp/{run_name}_gvp_{epoch}.pt"
+                path_optimizer = (
+                    f"../output/train/models/optimizer/{run_name}_adam_{epoch}.pt"
+                )
+                torch.save(model_msa.state_dict(), path_msa)
+                torch.save(model_gvp.state_dict(), path_gvp)
+                torch.save(optimizer.state_dict(), path_optimizer)
+                
                 with torch.no_grad():
-                    # Val loop
+                    # Do training validation
+                    model_msa.eval()
+                    model_gvp.eval()
+
                     loss_val, acc_val = loop_trainval(
                         model_msa,
                         model_gvp,
@@ -357,21 +371,23 @@ def main(rank, world_size):
                         EPOCH_FINETUNE_MSA,
                     )
 
-                    # Do validation on MAVE set
-                    corr_mave, acc_mave = run_test_mave.test(
-                        run_name,
-                        epoch,
-                        num_ensemble=1,
-                        get_mean_metrics=True,
-                        device=rank,
-                    )
+                    if epoch >= EPOCH_FINETUNE_MSA:
+                        # Do validation on MAVE set
+                        corr_mave, acc_mave = run_test_mave.test(
+                            run_name,
+                            epoch,
+                            device=rank,
+                        )
 
-                    if corr_mave > best_corr_mave:
-                        best_epoch = epoch
-                        patience_counter = 0
+                        # Update patience
+                        if corr_mave > best_corr_mave:
+                            best_epoch = epoch
+                            patience_counter = 0
+                        else:
+                            patience_counter += 1
                     else:
-                        patience_counter += 1
-
+                        corr_mave, acc_mave = 0.0, 0.0 
+                    
                     # Save validation results
                     epoch_list.append(epoch)
                     loss_train_list.append(
@@ -403,17 +419,17 @@ def main(rank, world_size):
     cleanup()
 
     ## Make test evalutions
-    #best_epoch = 110 # OBS: Uncomment this line to use weights from paper
+    best_epoch = 110
 
     # MAVE val set
     print("Starting MAVE val predictions")
-    run_test_mave.test(run_name, best_epoch, num_ensemble=5, device=rank)
+    run_test_mave.test(run_name, best_epoch, get_only_ssemb_metrics=False, device=rank)
     plot_mave_corr_vs_depth()
     print("Finished MAVE val predictions")
 
     # ProteinGym test set
     print("Starting ProteinGym test")
-    run_test_proteingym.test(run_name, best_epoch, num_ensemble=5, device=rank)
+    run_test_proteingym.test(run_name, best_epoch, device=rank)
     print("Finished ProteinGym test")
 
     # Rocklin test set
@@ -426,6 +442,10 @@ def main(rank, world_size):
     run_pipeline_scannet.run(run_name, best_epoch, device=rank)
     print("Finished ScanNet test")
 
+    # ClinVar test set
+    print("Starting ClinVar test")
+    run_test_clinvar.test(run_name, best_epoch, num_ensemble=5, device=rank)
+    print("Finished ClinVar test")
 
 if __name__ == "__main__":
     world_size = len(DEVICES)

@@ -11,12 +11,19 @@ import itertools
 from typing import List, Tuple
 import string
 import random
+import glob
+import pickle
+import pandas as pd
+import subprocess
+import json
+from collections import OrderedDict
 
 print = partial(print, flush=True)
 import torch.multiprocessing
 import torch.distributed as dist
 
 torch.multiprocessing.set_sharing_strategy("file_system")
+import pdb_parser_scripts.parse_pdbs as parse_pdbs
 from PrismData import PrismParser, VariantData
 from scipy import stats
 from sklearn.metrics import precision_recall_curve
@@ -54,6 +61,401 @@ def read_msa(filename: str) -> List[Tuple[str, str]]:
         for record in SeqIO.parse(filename, "fasta")
     ]
 
+def prepare_mave_val(num_ensemble=5):
+    # Copy PRISM DMS data to exp dir
+    dms_filenames = glob.glob("../data/test/mave_val/raw/*.txt")
+    for dms_filename in dms_filenames:
+        shutil.copy(dms_filename, "../data/test/mave_val/exp/")
+
+    # Load data
+    dms_filenames = sorted(glob.glob(f"../data/test/mave_val/exp/*.txt"))
+    df_dms_list = []
+    for dms_filename in dms_filenames:
+        dms_id = dms_filename.split("/")[-1].split("_")[1]
+        df_dms = pd.read_csv(dms_filename, comment="#", delim_whitespace=True)
+        df_dms = df_dms[["variant", "score_dms"]]
+        df_dms.insert(loc=0, column="dms_id", value=[dms_id] * len(df_dms))
+        df_dms_list += df_dms.values.tolist()
+    df_dms = pd.DataFrame(df_dms_list, columns=["dms_id", "variant", "score_dms"])
+
+    # Save DMS data
+    df_dms.to_csv("../data/test/mave_val/exp/dms.csv", index=False)
+
+    ## Pre-process PDBs
+    pdb_dir = "../data/test/mave_val/structure"
+    subprocess.run(
+        [
+            "pdb_parser_scripts/clean_pdbs.sh",
+            str(pdb_dir),
+        ]
+    )
+    parse_pdbs.parse(pdb_dir)
+
+    # Load structure data
+    print("Loading models and data...")
+    with open(f"{pdb_dir}/coords.json") as json_file:
+        data = json.load(json_file)
+    json_file.close()
+
+    ## Compute MSAs
+    #sys.path += [":/projects/prism/people/skr526/mmseqs/bin"]
+    #subprocess.run(
+    #    [
+    #        "colabfold_search",
+    #        f"{pdb_dir}/seqs.fasta",
+    #        "/projects/prism/people/skr526/databases",
+    #        "../data/test/mave_val/msa/",
+    #    ]
+    #)
+    #subprocess.run(["python", "merge_and_sort_msas.py", "../data/test/mave_val/msa"])
+
+    # Load MSA data
+    msa_filenames = sorted(glob.glob(f"../data/test/mave_val/msa/*.a3m"))
+    mave_msa_sub = {}
+    for i, f in enumerate(msa_filenames):
+        name = f.split("/")[-1].split(".")[0]
+        mave_msa_sub[name] = []
+        for j in range(num_ensemble):
+            msa = read_msa(f)
+            msa_sub = [msa[0]]
+            k = min(len(msa) - 1, 16 - 1)
+            msa_sub += [msa[i] for i in sorted(random.sample(range(1, len(msa)), k))]
+            mave_msa_sub[name].append(msa_sub)
+
+    # Add MSAs to data
+    for entry in data:
+        entry["msa"] = mave_msa_sub[entry["name"]]
+
+    # Change data names
+    for entry in data:
+        entry["name"] = mave_val_pdb_to_prot[entry["name"]]
+
+    # Make variant pos dict
+    variant_pos_dict = {}
+    for entry in data:
+        seq = entry["seq"]
+        pos = [str(x + 1) for x in range(len(seq))]
+        variant_wtpos_list = [[seq[i] + pos[i]] for i in range(len(seq))]
+        variant_wtpos_list = [x for sublist in variant_wtpos_list for x in sublist]
+        variant_pos_dict[entry["name"]] = variant_wtpos_list
+
+    # Save data and dict of variant positions
+    with open(f"../data/test/mave_val/data_with_msas.pkl","wb") as fp:
+        pickle.dump(data, fp)
+
+    with open(f"../data/test/mave_val/variant_pos_dict.pkl","wb") as fp:
+        pickle.dump(variant_pos_dict, fp)
+
+
+def prepare_proteingym_default(num_ensemble=5):
+    # Define and save list of validation assays to be excluded
+    val_list = [
+        "NUD15_HUMAN_Suiter_2020",
+        "TPMT_HUMAN_Matreyek_2018",
+        "CP2C9_HUMAN_Amorosi_abundance_2021",
+        "P53_HUMAN_Kotler_2018",
+        "PABP_YEAST_Melamed_2013",
+        "SUMO1_HUMAN_Weile_2017",
+        "RL401_YEAST_Roscoe_2014",
+        "PTEN_HUMAN_Mighell_2018",
+        "MK01_HUMAN_Brenan_2016",
+    ]
+
+    with open(f"../data/test/proteingym_default/val_list.pkl","wb") as fp:
+        pickle.dump(val_list, fp)
+
+    # Load data
+    dms_filenames = sorted(
+        glob.glob(f"../data/test/proteingym_default/raw/ProteinGym_substitutions/*.csv")
+    )
+    df_dms_list = []
+    for dms_filename in dms_filenames:
+        dms_id = dms_filename.split("/")[-1].split(".")[0]
+        df_dms = pd.read_csv(dms_filename)
+        df_dms = df_dms[["mutant", "DMS_score"]]
+        df_dms.insert(loc=0, column="dms_id", value=[dms_id] * len(df_dms))
+        df_dms_list += df_dms.values.tolist()
+    df_dms = pd.DataFrame(df_dms_list, columns=["dms_id", "variant", "score_dms"])
+    df_dms = df_dms[~df_dms["dms_id"].isin(val_list)]
+
+    # Save DMS data
+    df_dms.to_csv("../data/test/proteingym_default/exp/dms.csv", index=False)
+
+    ## Pre-process PDBs
+    pdb_dir = "../data/test/proteingym_default/structure"
+    #subprocess.run(
+    #    [
+    #        "pdb_parser_scripts/clean_pdbs.sh",
+    #        str(pdb_dir),
+    #    ]
+    #)
+    #parse_pdbs.parse(pdb_dir)
+
+    # Load structure data
+    print("Loading models and data...")
+    with open(f"{pdb_dir}/coords.json") as json_file:
+        data_all = json.load(json_file)
+    json_file.close()
+
+    # Remove assays from validation set
+    data = [x for x in data_all if x["name"] not in val_list]
+
+    ## Compute MSAs
+    #sys.path += [":/projects/prism/people/skr526/mmseqs/bin"]
+    #subprocess.run(
+    #    [
+    #        "colabfold_search",
+    #        f"{pdb_dir}/seqs.fasta",
+    #        "/projects/prism/people/skr526/databases",
+    #        "../data/test/proteingym/msa/",
+    #    ]
+    #)
+    #subprocess.run(["python", "merge_and_sort_msas.py", "../data/test/proteingym/msa"])
+
+    # Load MSA data
+    msa_filenames = sorted(glob.glob(f"../data/test/proteingym_default/msa/*.a3m"))
+    mave_msa_sub = {}
+    for i, f in enumerate(msa_filenames):
+        name = f.split("/")[-1].split(".")[0]
+        mave_msa_sub[name] = []
+        for j in range(num_ensemble):
+            msa = read_msa(f)
+            msa_sub = [msa[0]]
+            k = min(len(msa) - 1, 16 - 1)
+            msa_sub += [msa[i] for i in sorted(random.sample(range(1, len(msa)), k))]
+            mave_msa_sub[name].append(msa_sub)
+
+    # Add MSAs to data
+    for entry in data:
+        entry["msa"] = mave_msa_sub[entry["name"]]
+
+    # Make variant pos dict
+    variant_pos_dict = {}
+    for dms_id in df_dms["dms_id"].unique():
+        df_dms_id = df_dms[df_dms["dms_id"] == dms_id]
+        variant_wtpos_list = [
+            [x[:-1] for x in x.split(":")] for x in df_dms_id["variant"].tolist()
+        ]
+        variant_wtpos_list = list(
+            OrderedDict.fromkeys(
+                [item for sublist in variant_wtpos_list for item in sublist]
+            )
+        )  # Remove duplicates
+        variant_pos_dict[dms_id] = variant_wtpos_list    
+
+    # Save data and dict of variant positions
+    with open(f"../data/test/proteingym_default/data_with_msas.pkl","wb") as fp:
+        pickle.dump(data, fp)
+
+    with open(f"../data/test/proteingym_default/variant_pos_dict.pkl","wb") as fp:
+        pickle.dump(variant_pos_dict, fp)
+
+def prepare_proteingym(num_ensemble=5):
+    # Define and save list of validation assays to be excluded
+    val_list = [
+        "NUD15_HUMAN_Suiter_2020",
+        "TPMT_HUMAN_Matreyek_2018",
+        "CP2C9_HUMAN_Amorosi_abundance_2021",
+        "P53_HUMAN_Kotler_2018",
+        "PABP_YEAST_Melamed_2013",
+        "SUMO1_HUMAN_Weile_2017",
+        "RL401_YEAST_Roscoe_2014",
+        "PTEN_HUMAN_Mighell_2018",
+        "MK01_HUMAN_Brenan_2016",
+    ]
+
+    with open(f"../data/test/proteingym/val_list.pkl","wb") as fp:
+        pickle.dump(val_list, fp)
+
+    # Load data
+    dms_filenames = sorted(
+        glob.glob(f"../data/test/proteingym/raw/ProteinGym_substitutions/*.csv")
+    )
+    df_dms_list = []
+    for dms_filename in dms_filenames:
+        dms_id = dms_filename.split("/")[-1].split(".")[0]
+        df_dms = pd.read_csv(dms_filename)
+        df_dms = df_dms[["mutant", "DMS_score"]]
+        df_dms.insert(loc=0, column="dms_id", value=[dms_id] * len(df_dms))
+        df_dms_list += df_dms.values.tolist()
+    df_dms = pd.DataFrame(df_dms_list, columns=["dms_id", "variant", "score_dms"])
+    df_dms = df_dms[~df_dms["dms_id"].isin(val_list)]
+
+    # Save DMS data
+    df_dms.to_csv("../data/test/proteingym/exp/dms.csv", index=False)
+
+    ### Pre-process PDBs
+    pdb_dir = "../data/test/proteingym/structure"
+    subprocess.run(
+        [
+            "pdb_parser_scripts/clean_pdbs.sh",
+            str(pdb_dir),
+        ]
+    )
+    parse_pdbs.parse(pdb_dir)
+
+    # Load structure data
+    print("Loading models and data...")
+    with open(f"{pdb_dir}/coords.json") as json_file:
+        data_all = json.load(json_file)
+    json_file.close()
+
+    # Remove assays from validation set
+    data = [x for x in data_all if x["name"] not in val_list]
+
+    ## Compute MSAs
+    #sys.path += [":/projects/prism/people/skr526/mmseqs/bin"]
+    #subprocess.run(
+    #    [
+    #        "colabfold_search",
+    #        f"{pdb_dir}/seqs.fasta",
+    #        "/projects/prism/people/skr526/databases",
+    #        "../data/test/proteingym/msa/",
+    #    ]
+    #)
+    #subprocess.run(["python", "merge_and_sort_msas.py", "../data/test/proteingym/msa"])
+
+    # Load MSA data
+    msa_filenames = sorted(glob.glob(f"../data/test/proteingym/msa/*.a3m"))
+    mave_msa_sub = {}
+    for i, f in enumerate(msa_filenames):
+        name = f.split("/")[-1].split(".")[0]
+        mave_msa_sub[name] = []
+        for j in range(num_ensemble):
+            msa = read_msa(f)
+            msa_sub = [msa[0]]
+            k = min(len(msa) - 1, 16 - 1)
+            msa_sub += [msa[i] for i in sorted(random.sample(range(1, len(msa)), k))]
+            mave_msa_sub[name].append(msa_sub)
+
+    # Add MSAs to data
+    for entry in data:
+        entry["msa"] = mave_msa_sub[entry["name"]]
+
+    # Make variant pos dict
+    variant_pos_dict = {}
+    for dms_id in df_dms["dms_id"].unique():
+        df_dms_id = df_dms[df_dms["dms_id"] == dms_id]
+        variant_wtpos_list = [
+            [x[:-1] for x in x.split(":")] for x in df_dms_id["variant"].tolist()
+        ]
+        variant_wtpos_list = list(
+            OrderedDict.fromkeys(
+                [item for sublist in variant_wtpos_list for item in sublist]
+            )
+        )  # Remove duplicates
+        variant_pos_dict[dms_id] = variant_wtpos_list    
+
+    # Save data and dict of variant positions
+    with open(f"../data/test/proteingym/data_with_msas.pkl","wb") as fp:
+        pickle.dump(data, fp)
+
+    with open(f"../data/test/proteingym/variant_pos_dict.pkl","wb") as fp:
+        pickle.dump(variant_pos_dict, fp)
+
+
+def prepare_proteingym_bad(num_ensemble=5):
+    # Define and save list of validation assays to be excluded
+    val_list = [
+        "NUD15_HUMAN_Suiter_2020",
+        "TPMT_HUMAN_Matreyek_2018",
+        "CP2C9_HUMAN_Amorosi_abundance_2021",
+        "P53_HUMAN_Kotler_2018",
+        "PABP_YEAST_Melamed_2013",
+        "SUMO1_HUMAN_Weile_2017",
+        "RL401_YEAST_Roscoe_2014",
+        "PTEN_HUMAN_Mighell_2018",
+        "MK01_HUMAN_Brenan_2016",
+    ]
+
+    with open(f"../data/test/proteingym_bad/val_list.pkl","wb") as fp:
+        pickle.dump(val_list, fp)
+
+    # Load data
+    dms_filenames = sorted(
+        glob.glob(f"../data/test/proteingym_bad/raw/ProteinGym_substitutions/*.csv")
+    )
+    df_dms_list = []
+    for dms_filename in dms_filenames:
+        dms_id = dms_filename.split("/")[-1].split(".")[0]
+        df_dms = pd.read_csv(dms_filename)
+        df_dms = df_dms[["mutant", "DMS_score"]]
+        df_dms.insert(loc=0, column="dms_id", value=[dms_id] * len(df_dms))
+        df_dms_list += df_dms.values.tolist()
+    df_dms = pd.DataFrame(df_dms_list, columns=["dms_id", "variant", "score_dms"])
+    df_dms = df_dms[~df_dms["dms_id"].isin(val_list)]
+
+    # Save DMS data
+    df_dms.to_csv("../data/test/proteingym_bad/exp/dms.csv", index=False)
+
+    ### Pre-process PDBs
+    pdb_dir = "../data/test/proteingym_bad/structure"
+    subprocess.run(
+        [
+            "pdb_parser_scripts/clean_pdbs.sh",
+            str(pdb_dir),
+        ]
+    )
+    parse_pdbs.parse(pdb_dir)
+
+    # Load structure data
+    print("Loading models and data...")
+    with open(f"{pdb_dir}/coords.json") as json_file:
+        data_all = json.load(json_file)
+    json_file.close()
+
+    # Remove assays from validation set
+    data = [x for x in data_all if x["name"] not in val_list]
+
+    ## Compute MSAs
+    #sys.path += [":/projects/prism/people/skr526/mmseqs/bin"]
+    #subprocess.run(
+    #    [
+    #        "colabfold_search",
+    #        f"{pdb_dir}/seqs.fasta",
+    #        "/projects/prism/people/skr526/databases",
+    #        "../data/test/proteingym_bad/msa/",
+    #    ]
+    #)
+    #subprocess.run(["python", "merge_and_sort_msas.py", "../data/test/proteingym_bad/msa"])
+
+    # Load MSA data
+    msa_filenames = sorted(glob.glob(f"../data/test/proteingym_bad/msa/*.a3m"))
+    mave_msa_sub = {}
+    for i, f in enumerate(msa_filenames):
+        name = f.split("/")[-1].split(".")[0]
+        mave_msa_sub[name] = []
+        for j in range(num_ensemble):
+            msa = read_msa(f)
+            msa_sub = [msa[0]]
+            k = min(len(msa) - 1, 16 - 1)
+            msa_sub += [msa[i] for i in sorted(random.sample(range(1, len(msa)), k))]
+            mave_msa_sub[name].append(msa_sub)
+
+    # Add MSAs to data
+    for entry in data:
+        entry["msa"] = mave_msa_sub[entry["name"]]
+
+    # Make variant pos dict
+    variant_pos_dict = {}
+    for dms_id in df_dms["dms_id"].unique():
+        df_dms_id = df_dms[df_dms["dms_id"] == dms_id]
+        variant_wtpos_list = [
+            [x[:-1] for x in x.split(":")] for x in df_dms_id["variant"].tolist()
+        ]
+        variant_wtpos_list = list(
+            OrderedDict.fromkeys(
+                [item for sublist in variant_wtpos_list for item in sublist]
+            )
+        )  # Remove duplicates
+        variant_pos_dict[dms_id] = variant_wtpos_list    
+
+    # Save data and dict of variant positions
+    with open(f"../data/test/proteingym_bad/data_with_msas.pkl","wb") as fp:
+        pickle.dump(data, fp)
+
+    with open(f"../data/test/proteingym_bad/variant_pos_dict.pkl","wb") as fp:
+        pickle.dump(variant_pos_dict, fp)
 
 def save_df_to_prism(df, run_name, dms_id):
     # Initialize
@@ -235,37 +637,35 @@ def forward(
     msa_batch_tokens_masked,
     seq_masked,
     batch,
+    msa_row_attn_mask=True,
     mask_pos=None,
     loss_fn=None,
-    loss_fn_aux=None,
     batch_prots=None,
     get_logits_only=False,
 ):
     # Make MSA Transformer predictions
-    msa_transformer_pred = model_msa(
-        msa_batch_tokens_masked, repr_layers=[12], self_row_attn_mask=batch.dist_mask
-    )
+    if msa_row_attn_mask == True:
+        msa_transformer_pred = model_msa(
+                        msa_batch_tokens_masked, repr_layers=[12], 
+                        self_row_attn_mask=batch.dist_mask
+                        )
+    elif msa_row_attn_mask == False:
+        msa_transformer_pred = model_msa(
+                        msa_batch_tokens_masked, repr_layers=[12])
     msa_emb = msa_transformer_pred["representations"][12][0, 0, 1:, :]
 
     # Make GVP predictions
     h_V = (batch.node_s, batch.node_v)
     h_E = (batch.edge_s, batch.edge_v)
-    logits, logits_aux = model_gvp(h_V, batch.edge_index, h_E, msa_emb, seq_masked)
+    logits = model_gvp(h_V, batch.edge_index, h_E, msa_emb, seq_masked)
 
     if get_logits_only == True:
         # Return logits
         return logits
     else:
-        # Compute loss
+        # Compute and return loss
         logits, seq = logits[mask_pos], batch.seq[mask_pos]
         loss_value = loss_fn(logits, seq)
-
-        # Compute aux loss
-        logits_aux, contacts = logits_aux[mask_pos], batch.contacts[mask_pos]
-        loss_value_aux = loss_fn_aux(logits_aux, contacts)
-
-        # Add weighted losses
-        loss_value = loss_value + 0.00 * loss_value_aux
         loss_value = loss_value / batch_prots
         return loss_value, logits, seq
 
@@ -279,13 +679,13 @@ def loop_trainval(
     epoch,
     rank,
     epoch_finetune_msa,
+    msa_row_attn_mask=True,
     optimizer=None,
     scaler=None,
 ):
     # Initialize
     t = tqdm.tqdm(dataloader)
     loss_fn = nn.CrossEntropyLoss(reduction="sum")
-    loss_fn_aux = nn.CrossEntropyLoss(reduction="sum")
     total_loss, total_correct, total_count = 0, 0, 0
 
     # Initialize models and optimizer
@@ -336,9 +736,9 @@ def loop_trainval(
                         msa_batch_tokens_masked,
                         seq_masked,
                         batch,
+                        msa_row_attn_mask=msa_row_attn_mask,
                         mask_pos=mask_pos,
                         loss_fn=loss_fn,
-                        loss_fn_aux=loss_fn_aux,
                         batch_prots=batch_prots,
                     )
 
@@ -370,9 +770,9 @@ def loop_trainval(
                                 msa_batch_tokens_masked,
                                 seq_masked,
                                 batch,
+                                msa_row_attn_mask=msa_row_attn_mask,
                                 mask_pos=mask_pos,
                                 loss_fn=loss_fn,
-                                loss_fn_aux=loss_fn_aux,
                                 batch_prots=batch_prots,
                             )
 
@@ -388,9 +788,9 @@ def loop_trainval(
                                     msa_batch_tokens_masked,
                                     seq_masked,
                                     batch,
+                                    msa_row_attn_mask=msa_row_attn_mask,
                                     mask_pos=mask_pos,
                                     loss_fn=loss_fn,
-                                    loss_fn_aux=loss_fn_aux,
                                     batch_prots=batch_prots,
                                 )
 
@@ -404,9 +804,9 @@ def loop_trainval(
                     msa_batch_tokens_masked,
                     seq_masked,
                     batch,
+                    msa_row_attn_mask=msa_row_attn_mask,
                     mask_pos=mask_pos,
                     loss_fn=loss_fn,
-                    loss_fn_aux=loss_fn_aux,
                     batch_prots=batch_prots,
                 )
 
@@ -431,6 +831,7 @@ def loop_pred(
     variant_pos_dict,
     data,
     letter_to_num,
+    msa_row_attn_mask=True,
     device=None,
 ):
     # Initialize
@@ -460,7 +861,7 @@ def loop_pred(
                 score_ml_pos_ensemble = torch.zeros((len(batch.msa[0]), 20))
 
                 # If protein too long; redo data loading with fragment
-                if seq_len > 1024:
+                if seq_len > 1024 - 1:
                     # Get sliding window
                     window_size = 1024 - 1
                     lower_side = max(pos - window_size // 2, 0)
@@ -509,6 +910,7 @@ def loop_pred(
                         msa_batch_tokens_masked,
                         seq_masked,
                         batch,
+                        msa_row_attn_mask=msa_row_attn_mask,
                         get_logits_only=True,
                     )
                     logits_pos = logits[pos, :]
@@ -660,3 +1062,12 @@ def loop_scannet_test(model_transformer, dataloader, device=None):
         total_label.detach().cpu().numpy(), total_label_pred.detach().cpu().numpy()
     )
     return precision, recall
+
+def compute_auc_group(group):
+    protein_scores = group['score']
+    protein_labels = group['label_bin']
+    try:
+        result = roc_auc_score(y_true=protein_labels, y_score=protein_scores)
+    except:
+        result = np.nan
+    return result

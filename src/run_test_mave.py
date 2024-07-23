@@ -10,6 +10,7 @@ import esm
 import pandas as pd
 import random
 import torch.multiprocessing
+import pickle
 
 torch.multiprocessing.set_sharing_strategy("file_system")
 from models.msa_transformer.model import MSATransformer
@@ -31,87 +32,17 @@ import subprocess
 import shutil
 
 
-def test(run_name, epoch, num_ensemble=1, get_mean_metrics=False, device=None):
-    # Copy PRISM DMS data to exp dir
-    dms_filenames = glob.glob("../data/test/mave_val/raw/*.txt")
-    for dms_filename in dms_filenames:
-        shutil.copy(dms_filename, "../data/test/mave_val/exp/")
+def test(run_name, epoch, msa_row_attn_mask=True, get_only_ssemb_metrics=True, device=None):
+    # Load data and dict of variant positions
+    with open(f"../data/test/mave_val/data_with_msas.pkl", "rb") as fp:
+        data = pickle.load(fp)
 
-    # Load data
-    dms_filenames = sorted(glob.glob(f"../data/test/mave_val/exp/*.txt"))
-    df_dms_list = []
-    for dms_filename in dms_filenames:
-        dms_id = dms_filename.split("/")[-1].split("_")[1]
-        df_dms = pd.read_csv(dms_filename, comment="#", delim_whitespace=True)
-        df_dms = df_dms[["variant", "y_raw"]]
-        df_dms.insert(loc=0, column="dms_id", value=[dms_id] * len(df_dms))
-        df_dms_list += df_dms.values.tolist()
-    df_dms = pd.DataFrame(df_dms_list, columns=["dms_id", "variant", "score_exp"])
-
-    # Save DMS data
-    df_dms.to_csv("../data/test/mave_val/exp/dms.csv", index=False)
-
-    ## Pre-process PDBs
-    pdb_dir = "../data/test/mave_val/structure"
-    subprocess.run(
-        [
-            "pdb_parser_scripts/clean_pdbs.sh",
-            str(pdb_dir),
-        ]
-    )
-    parse_pdbs.parse(pdb_dir)
-
-    # Load structure data
-    print("Loading models and data...")
-    with open(f"{pdb_dir}/coords.json") as json_file:
-        data = json.load(json_file)
-    json_file.close()
-
-    # Compute MSAs
-    sys.path += [":/projects/prism/people/skr526/mmseqs/bin"]
-    subprocess.run(
-        [
-            "colabfold_search",
-            f"{pdb_dir}/seqs.fasta",
-            "/projects/prism/people/skr526/databases",
-            "../data/test/mave_val/msa/",
-        ]
-    )
-    subprocess.run(["python", "merge_and_sort_msa.py", "../data/test/mave_val/msa"])
-
-    # Load MSA data
-    msa_filenames = sorted(glob.glob(f"../data/test/mave_val/msa/*.a3m"))
-    mave_msa_sub = {}
-    for i, f in enumerate(msa_filenames):
-        name = f.split("/")[-1].split(".")[0]
-        mave_msa_sub[name] = []
-        for j in range(num_ensemble):
-            msa = read_msa(f)
-            msa_sub = [msa[0]]
-            k = min(len(msa) - 1, 16 - 1)
-            msa_sub += [msa[i] for i in sorted(random.sample(range(1, len(msa)), k))]
-            mave_msa_sub[name].append(msa_sub)
-
-    # Add MSAs to data
-    for entry in data:
-        entry["msa"] = mave_msa_sub[entry["name"]]
-
-    # Change data names
-    for entry in data:
-        entry["name"] = mave_val_pdb_to_prot[entry["name"]]
+    with open(f"../data/test/mave_val/variant_pos_dict.pkl", "rb") as fp:
+        variant_pos_dict = pickle.load(fp)
 
     # Convert to graph data sets
     testset = models.gvp.data.ProteinGraphData(data)
     letter_to_num = testset.letter_to_num
-
-    # Make variant pos dict
-    variant_pos_dict = {}
-    for entry in data:
-        seq = entry["seq"]
-        pos = [str(x + 1) for x in range(len(seq))]
-        variant_wtpos_list = [[seq[i] + pos[i]] for i in range(len(seq))]
-        variant_wtpos_list = [x for sublist in variant_wtpos_list for x in sublist]
-        variant_pos_dict[entry["name"]] = variant_wtpos_list
 
     # Load MSA Transformer
     _, msa_alphabet = esm.pretrained.esm_msa1b_t12_100M_UR50S()
@@ -165,7 +96,8 @@ def test(run_name, epoch, num_ensemble=1, get_mean_metrics=False, device=None):
             variant_pos_dict,
             data,
             letter_to_num,
-            device,
+            msa_row_attn_mask=msa_row_attn_mask,
+            device=device,
         )
 
     # Transform results into df
@@ -219,7 +151,7 @@ def test(run_name, epoch, num_ensemble=1, get_mean_metrics=False, device=None):
         save_df_to_prism(df_dms, run_name, dms_id)
 
     # Compute metrics
-    if get_mean_metrics == True:
+    if get_only_ssemb_metrics == True:
         corrs = []
         for dms_id in df_ml_scores["dms_id"].unique():
             corr = get_prism_corr(dms_id, run_name)
