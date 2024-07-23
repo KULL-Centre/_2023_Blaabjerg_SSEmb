@@ -1,23 +1,3 @@
-#Parts of the code presented in this file has been taken from:
-#https://github.com/drorlab/gvp-pytorch/tree/main
-#
-#Citations:
-#@inproceedings{
-#    jing2021learning,
-#    title={Learning from Protein Structure with Geometric Vector Perceptrons},
-#    author={Bowen Jing and Stephan Eismann and Patricia Suriana and Raphael John Lamarre Townshend and Ron Dror},
-#    booktitle={International Conference on Learning Representations},
-#    year={2021},
-#    url={https://openreview.net/forum?id=1YLJDvSx6J4}
-#}
-#
-#@article{jing2021equivariant,
-#  title={Equivariant Graph Neural Networks for 3D Macromolecular Structure},
-#  author={Jing, Bowen and Eismann, Stephan and Soni, Pratham N and Dror, Ron O},
-#  journal={arXiv preprint arXiv:2106.03843},
-#  year={2021}
-#}
-
 import math
 import numpy as np
 import torch

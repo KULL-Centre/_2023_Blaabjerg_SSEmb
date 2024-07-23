@@ -31,7 +31,6 @@ from ast import literal_eval
 import subprocess
 import shutil
 
-
 def test(run_name, epoch, msa_row_attn_mask=True, get_only_ssemb_metrics=True, device=None):
     # Load data and dict of variant positions
     with open(f"../data/test/mave_val/data_with_msas.pkl", "rb") as fp:

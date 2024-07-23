@@ -1,4 +1,4 @@
-The code presented in this directory has been taken from:
+Large parts of the code presented in this directory has been taken from:
 https://github.com/drorlab/gvp-pytorch/tree/main
 
 Citations:
