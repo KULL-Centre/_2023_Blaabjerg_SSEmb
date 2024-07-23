@@ -29,8 +29,8 @@ The code has been developed and tested in a Unix environment using the following
 * `mpl-scatter-density==0.7` 
 
 ## Downloads 
-Data related to the paper can be download here: [https://zenodo.org/records/10362251](https://zenodo.org/records/10362251).<br>
-The directory contains the folding subdirectories:<br>
+Data related to the paper can be download here: [https://zenodo.org/records/12798019](https://zenodo.org/records/12798019).<br>
+The `data` directory contains the folding subdirectories:<br>
 * `train`
     * `model_weights`: Final weights for the SSEmb-MSATransformer and SSEmb-GVPGNN modules.
     * `optimizer_weights`: Parameters for the optimizer at time of early-stopping.
@@ -40,12 +40,15 @@ The directory contains the folding subdirectories:<br>
 * `rocklin`:
     * `msa`: MSAs for the proteins in the mega-scale stability change test set.
 * `proteingym`:
-    * `structure`: AlphaFold-2 generated structures used for the ProteinGym test.
+    * `structure`: AlphaFold-2 generated structures used for the ProteinGym test set.
     * `msa`: MSAs for the proteins in the ProteinGym test set.
 * `scannet`:
     * `model_weights`: Final weights for the SSEmb downstream model trained on the ScanNet data set.
     * `optimizer_weights`: Parameters for the optimizer at time of early-stopping.
     * `msa`: MSAs for the proteins in the ScanNet data set.
+* `clinvar`:
+    * `structure`: AlphaFold-2 generated structures used for the ClinVar test set.
+    * `msa`: MSAs for the proteins in the ClinVar test set.
 
 ## License
 Source code and model weights are licensed under the MIT License.
