@@ -50,11 +50,14 @@ The `data` directory contains the folding subdirectories:<br>
     * `structure`: AlphaFold-2 generated structures used for the ClinVar test set.
     * `msa`: MSAs for the proteins in the ClinVar test set.
 
+## SSEmbLab
+We have created an online Colab-based webserver for making SSEmb predictions. The webserver can be accessed [here](https://colab.research.google.com/github/KULL-Centre/_2023_Blaabjerg_SSEmb/blob/main/SSEmbLab.ipynb).
+
 ## License
 Source code and model weights are licensed under the MIT License.
 
 ## Acknowledgements
-We thank Milot Mirdita and the rest of the ColabFold Search team for help in setting up the Colab-based SSEmbLab pipeline.<br>
+We thank Milot Mirdita and the rest of the ColabFold Search team for help in setting up the Colab SSEmb webserver.<br>
 <br>
 Code for the original MSA Transformer was developed by the ESM team at Meta Research:<br>
 [https://github.com/facebookresearch/esm](https://github.com/facebookresearch/esm).
