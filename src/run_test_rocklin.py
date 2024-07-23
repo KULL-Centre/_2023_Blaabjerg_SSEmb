@@ -65,7 +65,7 @@ def test(run_name, epoch, num_ensemble=1, device=None):
     df = df[df["mut_type"] != "wt"]
 
     # Change pdb names to align with structure names
-    df["WT_name"] = df["WT_name"].str.replace("|", ":", regex=True)
+    df["WT_name"] = df["WT_name"].str.replace("|", ":")
 
     # Move structures
     structures = list(df["WT_name"].unique())

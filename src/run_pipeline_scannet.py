@@ -144,7 +144,6 @@ def run(run_name, epoch, device=None):
     for i, pdbid in enumerate(pdb_list):
         print(f"{i+1}/{len(pdb_list)}")
         print(pdbid)
-        f = io.StringIO()
         out = ""
         if os.path.exists(f"../data/test/scannet/raw/{pdbid}.pdb"):
             print("PDB file already downloaded")

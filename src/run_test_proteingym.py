@@ -24,144 +24,22 @@ import torch.utils.data
 from collections import OrderedDict
 from ast import literal_eval
 import subprocess
+import pickle
 
+def test(run_name, epoch, msa_row_attn_mask=True, device=None):
+    # Load data and dict of variant positions
+    with open(f"../data/test/proteingym/data_with_msas.pkl", "rb") as fp:
+        data = pickle.load(fp)
 
-def test(run_name, epoch, num_ensemble=1, device=None):
-    # Download raw data
-    subprocess.run(
-        [
-            "wget",
-            "-c",
-            "https://raw.githubusercontent.com/OATML-Markslab/ProteinGym/main/ProteinGym_reference_file_substitutions.csv",
-            "-P",
-            "../data/test/proteingym/",
-        ]
-    )
-    subprocess.run(
-        [
-            "wget",
-            "-c",
-            "https://raw.githubusercontent.com/OATML-Markslab/ProteinGym/main/Detailed_performance_files/Substitutions/Spearman/all_models_substitutions_Spearman_DMS_level.csv",
-            "-P",
-            "../data/test/proteingym/",
-        ]
-    )
-    subprocess.run(
-        [
-            "wget",
-            "-c",
-            "https://raw.githubusercontent.com/OATML-Markslab/ProteinGym/main/Detailed_performance_files/Substitutions/Spearman/all_models_substitutions_Spearman_Uniprot_level.csv",
-            "-P",
-            "../data/test/proteingym/",
-        ]
-    )
-    subprocess.run(
-        [
-            "wget",
-            "https://marks.hms.harvard.edu/proteingym/ProteinGym_substitutions.zip",
-        ]
-    )
-    subprocess.run(
-        ["unzip", "ProteinGym_substitutions.zip", "-d", "../data/test/proteingym/raw"]
-    )
-    subprocess.run(["rm", "ProteinGym_substitutions.zip"])
+    with open(f"../data/test/proteingym/variant_pos_dict.pkl", "rb") as fp:
+        variant_pos_dict = pickle.load(fp)
 
-    ###
-    # TO DO: Add code for generating AF2 structures
-    ###
-
-    # Load data
-    dms_filenames = sorted(
-        glob.glob(f"../data/test/proteingym/raw/ProteinGym_substitutions/*.csv")
-    )
-    df_dms_list = []
-    for dms_filename in dms_filenames:
-        dms_id = dms_filename.split("/")[-1].split(".")[0]
-        df_dms = pd.read_csv(dms_filename)
-        df_dms = df_dms[["mutant", "DMS_score"]]
-        df_dms.insert(loc=0, column="dms_id", value=[dms_id] * len(df_dms))
-        df_dms_list += df_dms.values.tolist()
-    df_dms = pd.DataFrame(df_dms_list, columns=["dms_id", "variant", "score_dms"])
-
-    # Save DMS data
-    df_dms.to_csv("../data/test/proteingym/exp/dms.csv", index=False)
-
-    ## Pre-process PDBs
-    pdb_dir = "../data/test/proteingym/structure"
-    subprocess.run(
-        [
-            "pdb_parser_scripts/clean_pdbs.sh",
-            str(pdb_dir),
-        ]
-    )
-    parse_pdbs.parse(pdb_dir)
-
-    # Load structure data
-    print("Loading models and data...")
-    with open(f"{pdb_dir}/coords.json") as json_file:
-        data_all = json.load(json_file)
-    json_file.close()
-
-    # Compute MSAs
-    sys.path += [":/projects/prism/people/skr526/mmseqs/bin"]
-    subprocess.run(
-        [
-            "colabfold_search",
-            f"{pdb_dir}/seqs.fasta",
-            "/projects/prism/people/skr526/databases",
-            "../data/test/proteingym/msa/",
-        ]
-    )
-    subprocess.run(["python", "merge_and_sort_msas.py", "../data/test/proteingym/msa"])
-
-    val_list = [
-        "NUD15_HUMAN_Suiter_2020",
-        "TPMT_HUMAN_Matreyek_2018",
-        "CP2C9_HUMAN_Amorosi_abundance_2021",
-        "P53_HUMAN_Kotler_2018",
-        "PABP_YEAST_Melamed_2013",
-        "SUMO1_HUMAN_Weile_2017",
-        "RL401_YEAST_Roscoe_2014",
-        "PTEN_HUMAN_Mighell_2018",
-        "MK01_HUMAN_Brenan_2016",
-    ]
-
-    data = [x for x in data_all if x["name"] not in val_list]
-
-    # Load MSA data
-    msa_filenames = sorted(glob.glob(f"../data/test/proteingym/msa/*.a3m"))
-    mave_msa_sub = {}
-    for i, f in enumerate(msa_filenames):
-        name = f.split("/")[-1].split(".")[0]
-        mave_msa_sub[name] = []
-        for j in range(num_ensemble):
-            msa = read_msa(f)
-            msa_sub = [msa[0]]
-            k = min(len(msa) - 1, 16 - 1)
-            msa_sub += [msa[i] for i in sorted(random.sample(range(1, len(msa)), k))]
-            mave_msa_sub[name].append(msa_sub)
-
-    # Add MSAs to data
-    for entry in data:
-        entry["msa"] = mave_msa_sub[entry["name"]]
+    # Load DMS data
+    df_dms = pd.read_csv("../data/test/proteingym/exp/dms.csv")
 
     # Convert to graph data sets
     testset = models.gvp.data.ProteinGraphData(data)
     letter_to_num = testset.letter_to_num
-
-    # Make variant pos dict
-    variant_pos_dict = {}
-    for dms_id in df_dms["dms_id"].unique():
-        df_dms_id = df_dms[df_dms["dms_id"] == dms_id]
-        variant_wtpos_list = [
-            [x[:-1] for x in x.split(":")] for x in df_dms_id["variant"].tolist()
-        ]
-        variant_wtpos_list = list(
-            OrderedDict.fromkeys(
-                [item for sublist in variant_wtpos_list for item in sublist]
-            )
-        )  # Remove duplicates
-        variant_pos_dict[dms_id] = variant_wtpos_list
 
     # Load MSA Transformer
     _, msa_alphabet = esm.pretrained.esm_msa1b_t12_100M_UR50S()
@@ -215,6 +93,7 @@ def test(run_name, epoch, num_ensemble=1, device=None):
             variant_pos_dict,
             data,
             letter_to_num,
+            msa_row_attn_mask=msa_row_attn_mask,
             device=device,
         )
 
@@ -222,16 +101,15 @@ def test(run_name, epoch, num_ensemble=1, device=None):
     df_ml = pd.DataFrame(pred_list, columns=["dms_id", "variant_pos", "score_ml_pos"])
 
     # Save
-    df_ml.to_csv(f"../output/proteingym/df_ml_{run_name}.csv", index=False)
+    df_ml.to_csv(f"../output/proteingym/df_ml_{run_name}_{epoch}.csv", index=False)
 
     # Load
     df_ml = pd.read_csv(
-        f"../output/proteingym/df_ml_{run_name}.csv",
+        f"../output/proteingym/df_ml_{run_name}_{epoch}.csv",
         converters=dict(score_ml_pos=literal_eval),
     )
 
     # Compute score_ml from nlls
-    df_dms = df_dms[~df_dms["dms_id"].isin(val_list)]
     dms_variant_list = df_dms.values.tolist()
     for i, row in enumerate(dms_variant_list):
         dms_id = row[0]
@@ -255,10 +133,10 @@ def test(run_name, epoch, num_ensemble=1, device=None):
     )
 
     # Save
-    df_total.to_csv(f"../output/proteingym/df_total_{run_name}.csv", index=False)
+    df_total.to_csv(f"../output/proteingym/df_total_{run_name}_{epoch}.csv", index=False)
 
     # Load
-    df_total = pd.read_csv(f"../output/proteingym/df_total_{run_name}.csv")
+    df_total = pd.read_csv(f"../output/proteingym/df_total_{run_name}_{epoch}.csv")
 
     # Compute correlations
-    plot_proteingym(df_total, run_name, benchmark_dms_exclude_list=val_list)
+    plot_proteingym(df_total, run_name, epoch)

@@ -119,7 +119,6 @@ class ProteinGraphData(data.Dataset):
         self.data_list = data_list
         self.dist_cutoff = dist_cutoff
         self.num_rbf = num_rbf
-        self.contacts_bins = np.array([0, 10, 20, 30, 40, 50])
         self.num_positional_embeddings = num_positional_embeddings
         self.top_k = top_k
         self.device = device

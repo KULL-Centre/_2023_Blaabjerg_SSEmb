@@ -84,7 +84,6 @@ class SSEmbGNN(torch.nn.Module):
 
         # Out
         self.W_out = GVP(node_h_dim, (20, 0), activations=(None, None), vector_gate=vector_gate)
-        self.W_out_aux = GVP(node_h_dim, (10, 0), activations=(None, None), vector_gate=vector_gate)
 
     def forward(self, h_V, edge_index, h_E, msa_emb, seq, get_emb=False):
         '''
@@ -121,5 +120,4 @@ class SSEmbGNN(torch.nn.Module):
             return h_V[0]
         else:
             logits = self.W_out(h_V)
-            logits_aux = self.W_out_aux(h_V)
-            return logits, logits_aux
+            return logits

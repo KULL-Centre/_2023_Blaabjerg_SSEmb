@@ -91,6 +91,8 @@ class RowSelfAttention(nn.Module):
                 self_attn_mask.unsqueeze(0).unsqueeze(0),
                 -10000,
             )
+        else:
+            pass
 
         if self_attn_padding_mask is not None:
             attn_weights = attn_weights.masked_fill(
