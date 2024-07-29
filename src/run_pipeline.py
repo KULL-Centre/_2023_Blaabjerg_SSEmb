@@ -418,9 +418,6 @@ def main(rank, world_size):
     # Clean up
     cleanup()
 
-    ## Make test evalutions
-    best_epoch = 110
-
     # MAVE val set
     print("Starting MAVE val predictions")
     run_test_mave.test(run_name, best_epoch, get_only_ssemb_metrics=False, device=rank)
