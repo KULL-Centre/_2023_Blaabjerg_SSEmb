@@ -1,0 +1,11 @@
+The ProteinGym data files have been taken from:
+https://github.com/OATML-Markslab/ProteinGym
+
+@article{notin2023a,
+  title={Proteingym: Large-scale benchmarks for protein design and fitness prediction},
+  author={Notin, Pascal and Kollasch, Aaron W and Ritter, Daniel and van Niekerk, Lood and Paul, Steffanie and Spinner, Hansen and Rollins, Nathan and Shaw, Ada and Weitzman, Ruben and Frazer, Jonathan and others},
+  journal={bioRxiv},
+  pages={2023--12},
+  year={2023},
+  publisher={Cold Spring Harbor Laboratory}
+}
