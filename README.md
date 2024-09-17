@@ -50,6 +50,8 @@ The `data` directory contains the folding subdirectories:<br>
     * `structure`: AlphaFold-2 generated structures used for the ClinVar test set.
     * `msa`: MSAs for the proteins in the ClinVar test set.
 
+A copy of this repository can be found on Zenodo here: [https://zenodo.org/doi/10.5281/zenodo.13765792](https://zenodo.org/doi/10.5281/zenodo.13765792).<br>
+
 ## SSEmbLab webserver
 We have created an online Colab-based webserver for making SSEmb predictions called SSEmbLab. The webserver can be accessed [here](https://colab.research.google.com/github/KULL-Centre/_2023_Blaabjerg_SSEmb/blob/main/SSEmbLab.ipynb).
 
